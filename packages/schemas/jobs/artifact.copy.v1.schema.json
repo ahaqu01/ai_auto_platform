@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.com/jobs/artifact.copy.v1.schema.json",
+  "title": "Artifact Copy V1",
+  "type": "object",
+  "properties": {
+    "outputName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^/\\\\\\u0000-\\u001f]+$"
+    }
+  },
+  "required": ["outputName"],
+  "additionalProperties": false
+}
+
