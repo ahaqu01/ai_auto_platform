@@ -17,4 +17,3 @@ func main() {
 	}
 	fmt.Fprintln(os.Stdout, "prexpand-agent: bootstrap not configured")
 }
-
