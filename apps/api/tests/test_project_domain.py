@@ -22,4 +22,3 @@ def test_project_can_be_restored() -> None:
     project.restore()
     project.require_writable()
     assert project.status is ProjectStatus.ACTIVE
-

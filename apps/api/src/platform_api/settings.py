@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     app_env: Literal["local", "test", "staging", "production"] = "local"
     app_name: str = "ai-auto-platform"
     app_version: str = "0.1.0"
-    database_url: str | None = None
-    redis_url: str | None = None
+    database_url: str = "postgresql+psycopg://platform:platform@127.0.0.1:5432/platform"
+    redis_url: str | None = "redis://127.0.0.1:6379/0"
     temporal_address: str | None = None
     keycloak_issuer: str | None = None
     oss_public_endpoint: str | None = None
@@ -44,4 +44,3 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.validate_production()
     return settings
-

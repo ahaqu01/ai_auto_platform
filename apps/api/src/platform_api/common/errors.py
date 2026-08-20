@@ -9,4 +9,3 @@ class DomainError(Exception):
 
     def __str__(self) -> str:
         return self.safe_detail
-

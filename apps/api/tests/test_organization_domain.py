@@ -3,7 +3,11 @@ from uuid import uuid4
 import pytest
 
 from platform_api.common.errors import DomainError
-from platform_api.modules.organization import Organization, OrganizationMember, OrganizationRole
+from platform_api.modules.organization import (
+    Organization,
+    OrganizationMember,
+    OrganizationRole,
+)
 
 
 def test_cannot_remove_last_owner() -> None:
@@ -28,4 +32,3 @@ def test_owner_can_be_removed_after_second_owner_added() -> None:
 
     assert first not in organization.members
     assert organization.members[second].role is OrganizationRole.OWNER
-

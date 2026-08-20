@@ -26,4 +26,3 @@ async def live() -> HealthResponse:
 async def ready() -> HealthResponse:
     # Dependency probes will be added with database/Redis/Temporal adapters.
     return await live()
-

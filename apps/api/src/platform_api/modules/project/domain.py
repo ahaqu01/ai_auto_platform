@@ -29,4 +29,3 @@ class Project:
     def require_writable(self) -> None:
         if self.status is not ProjectStatus.ACTIVE:
             raise DomainError("PROJECT_ARCHIVED", "归档项目不可创建资产或任务", 409)
-

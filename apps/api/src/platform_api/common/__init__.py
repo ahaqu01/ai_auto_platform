@@ -1,2 +1,1 @@
 """Shared infrastructure-independent primitives."""
-

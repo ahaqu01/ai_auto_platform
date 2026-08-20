@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 
 from platform_api import __version__
 from platform_api.api.health import router as health_router
+from platform_api.api.organizations import router as organizations_router
+from platform_api.api.projects import router as projects_router
 from platform_api.common.errors import DomainError
 from platform_api.settings import get_settings
 
@@ -17,12 +19,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    settings = get_settings()
-    app = FastAPI(
-        title="AI Auto Platform API",
-        version=__version__,
-        lifespan=lifespan,
-    )
+    app = FastAPI(title="AI Auto Platform API", version=__version__, lifespan=lifespan)
 
     @app.middleware("http")
     async def trace_context(request: Request, call_next):
@@ -49,8 +46,9 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health_router)
+    app.include_router(organizations_router)
+    app.include_router(projects_router)
     return app
 
 
 app = create_app()
-

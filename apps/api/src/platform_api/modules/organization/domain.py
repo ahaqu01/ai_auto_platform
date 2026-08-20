@@ -56,4 +56,3 @@ class Organization:
         )
         if not has_other_owner:
             raise DomainError("LAST_OWNER_REQUIRED", "企业必须至少保留一名所有者", 409)
-

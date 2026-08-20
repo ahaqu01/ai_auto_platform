@@ -12,4 +12,3 @@ class RequestContext:
     trace_id: str
     platform_role: str | None = None
     ip_address: str | None = None
-

@@ -12,4 +12,3 @@ def test_live_health() -> None:
         "version": "0.1.0",
     }
     assert response.headers["x-request-id"]
-
