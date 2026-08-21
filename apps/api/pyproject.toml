@@ -31,6 +31,9 @@ packages = ["src/platform_api"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+  "postgresql: requires an explicit TEST_DATABASE_URL and a live PostgreSQL server",
+]
 
 [tool.ruff.lint]
 extend-ignore = ["B008"]

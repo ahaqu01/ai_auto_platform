@@ -1,4 +1,4 @@
-name: ai-auto-platform-local
+name: ai-auto-platform
 
 # Local development dependencies only. Never reuse these credentials outside a developer host.
 services:
