@@ -12,7 +12,14 @@ from platform_api.modules.project.domain import ProjectStatus
 
 class UserModel(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint(
+            "external_issuer", "external_subject", name="uq_users_external_identity"
+        ),
+    )
 
+    external_issuer: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    external_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
 

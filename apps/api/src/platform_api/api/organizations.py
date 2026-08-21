@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -6,18 +7,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from platform_api.auth.dependencies import CurrentUser
 from platform_api.common.errors import DomainError
-from platform_api.db.models import OrganizationMemberModel, OrganizationModel, UserModel
+from platform_api.db.models import OrganizationMemberModel, OrganizationModel
 from platform_api.db.session import get_session
 from platform_api.modules.organization.domain import OrganizationRole
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["organizations"])
+DbSession = Annotated[AsyncSession, Depends(get_session)]
 
 
 class OrganizationCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
-    owner_email: str = Field(min_length=3, max_length=320)
-    owner_display_name: str = Field(min_length=1, max_length=120)
 
 
 class OrganizationRead(BaseModel):
@@ -28,21 +29,15 @@ class OrganizationRead(BaseModel):
 
 @router.post("", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
 async def create_organization(
-    payload: OrganizationCreate, session: AsyncSession = Depends(get_session)
+    payload: OrganizationCreate, current_user: CurrentUser, session: DbSession
 ) -> OrganizationModel:
-    email = payload.owner_email.strip().lower()
-    user = await session.scalar(select(UserModel).where(UserModel.email == email))
-    if user is None:
-        user = UserModel(email=email, display_name=payload.owner_display_name.strip())
-        session.add(user)
-        await session.flush()
     organization = OrganizationModel(name=payload.name.strip())
     session.add(organization)
     await session.flush()
     session.add(
         OrganizationMemberModel(
             organization_id=organization.id,
-            user_id=user.id,
+            user_id=current_user.id,
             role=OrganizationRole.OWNER,
         )
     )
@@ -57,12 +52,12 @@ async def create_organization(
 
 @router.get("", response_model=list[OrganizationRead])
 async def list_organizations(
-    user_id: UUID, session: AsyncSession = Depends(get_session)
+    current_user: CurrentUser, session: DbSession
 ) -> list[OrganizationModel]:
     result = await session.scalars(
         select(OrganizationModel)
         .join(OrganizationMemberModel)
-        .where(OrganizationMemberModel.user_id == user_id)
+        .where(OrganizationMemberModel.user_id == current_user.id)
         .order_by(OrganizationModel.created_at)
     )
     return list(result)

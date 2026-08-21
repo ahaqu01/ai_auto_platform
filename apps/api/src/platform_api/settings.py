@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     redis_url: str | None = "redis://127.0.0.1:6379/0"
     temporal_address: str | None = None
     keycloak_issuer: str | None = None
+    oidc_audience: str | None = None
     oss_public_endpoint: str | None = None
     oss_internal_endpoint: str | None = None
     oss_bucket: str | None = None
@@ -30,6 +31,7 @@ class Settings(BaseSettings):
             "redis_url": self.redis_url,
             "temporal_address": self.temporal_address,
             "keycloak_issuer": self.keycloak_issuer,
+            "oidc_audience": self.oidc_audience,
             "oss_public_endpoint": self.oss_public_endpoint,
             "oss_internal_endpoint": self.oss_internal_endpoint,
             "oss_bucket": self.oss_bucket,
