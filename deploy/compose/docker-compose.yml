@@ -1,5 +1,6 @@
-version: "3.9"
+name: ai-auto-platform-local
 
+# Local development dependencies only. Never reuse these credentials outside a developer host.
 services:
   postgres:
     image: postgres:16.4-alpine
