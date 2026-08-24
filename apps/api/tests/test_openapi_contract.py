@@ -1,11 +1,15 @@
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from platform_api.main import create_app
 from platform_api.openapi_policy import HTTP_METHODS, forbidden_identity_inputs
+from platform_api.settings import get_settings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT_PATH = REPOSITORY_ROOT / "packages" / "contracts" / "openapi.json"
@@ -96,3 +100,53 @@ def test_operation_ids_are_present_and_unique() -> None:
     ]
     assert all(operation_ids)
     assert len(operation_ids) == len(set(operation_ids))
+
+
+def load_export_module():
+    spec = importlib.util.spec_from_file_location(
+        "controlled_export_openapi", EXPORT_SCRIPT
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_programmatic_export_preserves_environment_and_settings_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_export_module()
+    monkeypatch.setenv("APP_FUTURE_SCHEMA_POISON", "caller-value")
+    before_environment = os.environ.copy()
+    get_settings.cache_clear()
+    cached_settings = get_settings()
+    before_cache = get_settings.cache_info()
+
+    schema = module.sanitized_schema()
+
+    assert schema["info"]["title"] == "AI Auto Platform API"
+    assert os.environ.copy() == before_environment
+    assert get_settings.cache_info() == before_cache
+    assert get_settings() is cached_settings
+
+
+def test_programmatic_export_restores_state_when_child_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_export_module()
+    monkeypatch.setenv("APP_FUTURE_SCHEMA_POISON", "caller-value")
+    before_environment = os.environ.copy()
+    get_settings.cache_clear()
+    cached_settings = get_settings()
+    before_cache = get_settings.cache_info()
+
+    def fail(*_args, **_kwargs):
+        raise subprocess.CalledProcessError(1, "schema-worker")
+
+    monkeypatch.setattr(module.subprocess, "run", fail)
+    with pytest.raises(subprocess.CalledProcessError):
+        module.sanitized_schema()
+
+    assert os.environ.copy() == before_environment
+    assert get_settings.cache_info() == before_cache
+    assert get_settings() is cached_settings
