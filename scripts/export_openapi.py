@@ -4,19 +4,51 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+from typing import Any
 
-from platform_api.main import create_app
+from platform_api.openapi_policy import assert_no_forbidden_identity_inputs
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "packages" / "contracts" / "openapi.json"
+
+SCHEMA_ENVIRONMENT = {
+    "APP_ENV": "local",
+    "APP_NAME": "ai-auto-platform",
+    "APP_VERSION": "0.1.0",
+    "DATABASE_URL": ("postgresql+psycopg://platform:platform@127.0.0.1:5432/platform"),
+    "REDIS_URL": "redis://127.0.0.1:6379/0",
+    "TEMPORAL_ADDRESS": "",
+    "TEMPORAL_NAMESPACE": "default",
+    "KEYCLOAK_ISSUER": "",
+    "OIDC_AUDIENCE": "",
+    "OSS_PUBLIC_ENDPOINT": "",
+    "OSS_INTERNAL_ENDPOINT": "",
+    "OSS_BUCKET": "",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "",
+}
+
+
+def sanitized_schema() -> dict[str, Any]:
+    for name, value in SCHEMA_ENVIRONMENT.items():
+        os.environ[name] = value
+
+    # Import only after the deterministic schema environment is installed.
+    from platform_api.main import create_app
+    from platform_api.settings import get_settings
+
+    get_settings.cache_clear()
+    schema = create_app().openapi()
+    assert_no_forbidden_identity_inputs(schema)
+    return schema
 
 
 def render_openapi() -> str:
     """Return a stable, human-readable representation of the runtime schema."""
     return (
         json.dumps(
-            create_app().openapi(),
+            sanitized_schema(),
             ensure_ascii=False,
             indent=2,
             sort_keys=True,
