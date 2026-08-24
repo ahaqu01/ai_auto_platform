@@ -12,7 +12,7 @@ COMPOSE_FILE = REPOSITORY_ROOT / "deploy" / "compose" / "docker-compose.yml"
 def deployment_settings(**overrides: str) -> dict[str, str]:
     values = {
         "app_env": "production",
-        "database_url": "postgresql+psycopg://app:strong-password@db.internal:5432/platform",
+        "database_url": "postgresql+psycopg://app:strong-password@db.internal:5432/platform?sslmode=verify-full",
         "redis_url": "rediss://redis.internal:6379/0",
         "temporal_address": "temporal.internal:7233",
         "keycloak_issuer": "https://auth.example.com/realms/platform",
@@ -99,6 +99,7 @@ def test_environment_example_matches_runtime_configuration_names() -> None:
         "OSS_INTERNAL_ENDPOINT",
         "OSS_BUCKET",
         "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "ALLOW_INSECURE_PRIVATE_SERVICE_TRANSPORT",
     } <= names
     assert "KEYCLOAK_CLIENT_ID" not in names
 
@@ -111,3 +112,71 @@ def test_compose_has_no_obsolete_version_and_binds_ports_to_loopback() -> None:
     assert '"127.0.0.1:6379:6379"' in compose
     assert '"127.0.0.1:9000:9000"' in compose
     assert "local-only" in compose
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        (
+            "database_url",
+            "postgresql+psycopg://app:strong-password@db.internal:5432/platform",
+        ),
+        ("redis_url", "redis://redis.internal:6379/0"),
+    ],
+)
+def test_production_requires_verified_service_tls(field: str, value: str) -> None:
+    with pytest.raises(RuntimeError, match=field):
+        Settings(**deployment_settings(**{field: value}), _env_file=None)
+
+
+def test_explicit_private_transport_exception_is_limited_to_internal_hosts() -> None:
+    settings = Settings(
+        **deployment_settings(
+            database_url=(
+                "postgresql+psycopg://app:strong-password@db.internal:5432/platform"
+            ),
+            redis_url="redis://redis.internal:6379/0",
+            allow_insecure_private_service_transport=True,
+        ),
+        _env_file=None,
+    )
+    assert settings.allow_insecure_private_service_transport is True
+
+    with pytest.raises(RuntimeError, match="database_url"):
+        Settings(
+            **deployment_settings(
+                database_url=(
+                    "postgresql+psycopg://app:strong-password@db.example.com:5432/"
+                    "platform"
+                ),
+                allow_insecure_private_service_transport=True,
+            ),
+            _env_file=None,
+        )
+
+
+def test_keycloak_issuer_accepts_safe_context_prefix() -> None:
+    settings = Settings(
+        **deployment_settings(
+            keycloak_issuer="https://auth.example.com/auth/realms/platform"
+        ),
+        _env_file=None,
+    )
+    assert settings.keycloak_issuer.endswith("/auth/realms/platform")
+
+
+@pytest.mark.parametrize(
+    "issuer",
+    [
+        "https://user@auth.example.com/auth/realms/platform",
+        "https://auth.example.com/auth/realms/platform?tenant=x",
+        "https://auth.example.com/auth/realms/platform#fragment",
+        "https://auth.example.com/auth/not-realms/platform",
+    ],
+)
+def test_keycloak_context_prefix_does_not_bypass_url_guards(issuer: str) -> None:
+    with pytest.raises(RuntimeError, match="keycloak_issuer"):
+        Settings(
+            **deployment_settings(keycloak_issuer=issuer),
+            _env_file=None,
+        )

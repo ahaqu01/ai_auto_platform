@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from ipaddress import ip_address
 from typing import Literal
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import ParseResult, parse_qs, urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,6 +54,20 @@ def _is_local_host(value: str) -> bool:
         return False
 
 
+def _is_private_service_endpoint(value: str) -> bool:
+    hostname = _hostname(value)
+    if not hostname:
+        return False
+    normalized = hostname.rstrip(".").lower()
+    if normalized.endswith(".internal"):
+        return True
+    try:
+        address = ip_address(normalized)
+        return address.is_private and not address.is_loopback
+    except ValueError:
+        return False
+
+
 def _is_public_endpoint(value: str) -> bool:
     hostname = _hostname(value)
     return bool(hostname and is_public_hostname_candidate(hostname))
@@ -74,6 +88,14 @@ def _valid_database_url(value: str) -> bool:
         and not parsed.params
         and not parsed.fragment
     )
+
+
+def _database_uses_verified_tls(value: str) -> bool:
+    parsed = _parse_url(value)
+    if parsed is None:
+        return False
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    return query.get("sslmode") == ["verify-full"]
 
 
 def _valid_redis_url(value: str) -> bool:
@@ -117,9 +139,9 @@ def _valid_keycloak_issuer(value: str) -> bool:
         and bool(parsed.hostname)
         and parsed.username is None
         and parsed.password is None
-        and len(path_parts) == 2
-        and path_parts[0] == "realms"
-        and bool(path_parts[1])
+        and len(path_parts) >= 2
+        and path_parts[-2] == "realms"
+        and bool(path_parts[-1])
         and not parsed.params
         and not parsed.query
         and not parsed.fragment
@@ -162,6 +184,7 @@ class Settings(BaseSettings):
     oss_internal_endpoint: str | None = None
     oss_bucket: str | None = None
     otel_exporter_otlp_endpoint: str | None = None
+    allow_insecure_private_service_transport: bool = False
 
     def model_post_init(self, __context: object, /) -> None:
         self.validate_deployment()
@@ -231,6 +254,28 @@ class Settings(BaseSettings):
         invalid.update(
             name for name, is_valid in structure_checks.items() if not is_valid
         )
+
+        database_tls_exception = (
+            self.allow_insecure_private_service_transport
+            and _is_private_service_endpoint(self.database_url)
+        )
+        if (
+            not _database_uses_verified_tls(self.database_url)
+            and not database_tls_exception
+        ):
+            invalid.add("database_url")
+
+        redis_tls_exception = bool(
+            self.redis_url
+            and self.allow_insecure_private_service_transport
+            and _is_private_service_endpoint(self.redis_url)
+        )
+        if (
+            self.redis_url
+            and not self.redis_url.lower().startswith("rediss://")
+            and not redis_tls_exception
+        ):
+            invalid.add("redis_url")
 
         database = _parse_url(self.database_url)
         if (

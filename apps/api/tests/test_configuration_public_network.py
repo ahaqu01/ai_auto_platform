@@ -15,7 +15,7 @@ from platform_api.settings import Settings
 def deployment_settings(**overrides: str) -> dict[str, str]:
     values = {
         "app_env": "production",
-        "database_url": "postgresql+psycopg://app:strong-password@db.internal:5432/platform",
+        "database_url": "postgresql+psycopg://app:strong-password@db.internal:5432/platform?sslmode=verify-full",
         "redis_url": "rediss://redis.internal:6379/0",
         "temporal_address": "temporal.internal:7233",
         "keycloak_issuer": "https://auth.example.com/realms/platform",
