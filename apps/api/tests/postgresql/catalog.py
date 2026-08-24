@@ -14,6 +14,13 @@ class SchemaCatalog:
     types: frozenset[str]
     sequences: frozenset[str]
     triggers: frozenset[str]
+    views: frozenset[str]
+    materialized_views: frozenset[str]
+    routines: frozenset[str]
+    policies: frozenset[str]
+    domains: frozenset[str]
+    collations: frozenset[str]
+    grants: frozenset[str]
 
 
 BASE_CATALOG_ALLOWLIST = SchemaCatalog(
@@ -23,6 +30,13 @@ BASE_CATALOG_ALLOWLIST = SchemaCatalog(
     types=frozenset({"alembic_version", "_alembic_version"}),
     sequences=frozenset(),
     triggers=frozenset(),
+    views=frozenset(),
+    materialized_views=frozenset(),
+    routines=frozenset(),
+    policies=frozenset(),
+    domains=frozenset(),
+    collations=frozenset(),
+    grants=frozenset(),
 )
 
 
@@ -78,12 +92,93 @@ async def collect_schema_catalog(
     )
     sequences = await _names(
         connection,
-        "select sequence_name from information_schema.sequences where sequence_schema = :schema",
+        """
+        select sequence_name
+        from information_schema.sequences
+        where sequence_schema = :schema
+        """,
         schema,
     )
     triggers = await _names(
         connection,
-        "select distinct trigger_name from information_schema.triggers where trigger_schema = :schema",
+        """
+        select distinct trigger_name
+        from information_schema.triggers
+        where trigger_schema = :schema
+        """,
+        schema,
+    )
+    views = await _names(
+        connection,
+        """
+        select table_name
+        from information_schema.views
+        where table_schema = :schema
+        """,
+        schema,
+    )
+    materialized_views = await _names(
+        connection,
+        """
+        select matviewname
+        from pg_matviews
+        where schemaname = :schema
+        """,
+        schema,
+    )
+    routines = await _names(
+        connection,
+        """
+        select p.proname || ':' || p.prokind::text
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = :schema
+        """,
+        schema,
+    )
+    policies = await _names(
+        connection,
+        """
+        select c.relname || ':' || p.polname
+        from pg_policy p
+        join pg_class c on c.oid = p.polrelid
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = :schema
+        """,
+        schema,
+    )
+    domains = await _names(
+        connection,
+        """
+        select t.typname
+        from pg_type t
+        join pg_namespace n on n.oid = t.typnamespace
+        where n.nspname = :schema and t.typtype = 'd'
+        """,
+        schema,
+    )
+    collations = await _names(
+        connection,
+        """
+        select c.collname
+        from pg_collation c
+        join pg_namespace n on n.oid = c.collnamespace
+        where n.nspname = :schema
+        """,
+        schema,
+    )
+    grants = await _names(
+        connection,
+        """
+        select c.relname || ':' ||
+               case when acl.grantee = 0 then 'PUBLIC'
+                    else pg_get_userbyid(acl.grantee)
+               end || ':' || acl.privilege_type
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        cross join lateral aclexplode(c.relacl) acl
+        where n.nspname = :schema
+        """,
         schema,
     )
     return SchemaCatalog(
@@ -93,4 +188,11 @@ async def collect_schema_catalog(
         types=types,
         sequences=sequences,
         triggers=triggers,
+        views=views,
+        materialized_views=materialized_views,
+        routines=routines,
+        policies=policies,
+        domains=domains,
+        collations=collations,
+        grants=grants,
     )
