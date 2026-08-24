@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from ipaddress import ip_address
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,9 +11,32 @@ DEPLOYMENT_ENVIRONMENTS = {"staging", "production"}
 LOCAL_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
 
+def _parse_url(value: str) -> ParseResult | None:
+    try:
+        parsed = urlparse(value)
+        _ = parsed.port
+    except ValueError:
+        return None
+    return parsed
+
+
+def _parse_address(value: str) -> ParseResult | None:
+    if "://" in value:
+        return None
+    try:
+        parsed = urlparse(f"//{value}")
+        _ = parsed.port
+    except ValueError:
+        return None
+    return parsed
+
+
 def _hostname(value: str) -> str | None:
-    parsed = urlparse(value if "://" in value else f"//{value}")
-    return parsed.hostname
+    try:
+        parsed = urlparse(value if "://" in value else f"//{value}")
+        return parsed.hostname
+    except ValueError:
+        return None
 
 
 def _is_local_host(value: str) -> bool:
@@ -27,6 +50,88 @@ def _is_local_host(value: str) -> bool:
         return ip_address(normalized).is_loopback
     except ValueError:
         return False
+
+
+def _valid_database_url(value: str) -> bool:
+    parsed = _parse_url(value)
+    if parsed is None:
+        return False
+    path_parts = [part for part in parsed.path.split("/") if part]
+    return (
+        parsed.scheme.lower() == "postgresql+psycopg"
+        and bool(parsed.hostname)
+        and bool(parsed.username)
+        and bool(parsed.password)
+        and parsed.port is not None
+        and len(path_parts) == 1
+        and not parsed.params
+        and not parsed.fragment
+    )
+
+
+def _valid_redis_url(value: str) -> bool:
+    parsed = _parse_url(value)
+    if parsed is None:
+        return False
+    database_number = parsed.path.removeprefix("/")
+    return (
+        parsed.scheme.lower() in {"redis", "rediss"}
+        and bool(parsed.hostname)
+        and parsed.port is not None
+        and bool(database_number)
+        and database_number.isdigit()
+        and "/" not in database_number
+        and not parsed.params
+        and not parsed.fragment
+    )
+
+
+def _valid_temporal_address(value: str) -> bool:
+    parsed = _parse_address(value)
+    return bool(
+        parsed
+        and parsed.hostname
+        and parsed.port is not None
+        and parsed.username is None
+        and parsed.password is None
+        and not parsed.path
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _valid_keycloak_issuer(value: str) -> bool:
+    parsed = _parse_url(value)
+    if parsed is None:
+        return False
+    path_parts = [part for part in parsed.path.split("/") if part]
+    return (
+        parsed.scheme.lower() == "https"
+        and bool(parsed.hostname)
+        and parsed.username is None
+        and parsed.password is None
+        and len(path_parts) == 2
+        and path_parts[0] == "realms"
+        and bool(path_parts[1])
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _valid_endpoint(value: str, *, allowed_schemes: set[str]) -> bool:
+    parsed = _parse_url(value)
+    return bool(
+        parsed
+        and parsed.scheme.lower() in allowed_schemes
+        and parsed.hostname
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 class Settings(BaseSettings):
@@ -85,18 +190,36 @@ class Settings(BaseSettings):
             if value and _is_local_host(value)
         )
 
-        https_fields = {
-            "keycloak_issuer": self.keycloak_issuer,
-            "oss_public_endpoint": self.oss_public_endpoint,
+        structure_checks = {
+            "database_url": _valid_database_url(self.database_url),
+            "redis_url": bool(self.redis_url and _valid_redis_url(self.redis_url)),
+            "temporal_address": bool(
+                self.temporal_address and _valid_temporal_address(self.temporal_address)
+            ),
+            "keycloak_issuer": bool(
+                self.keycloak_issuer and _valid_keycloak_issuer(self.keycloak_issuer)
+            ),
+            "oss_public_endpoint": bool(
+                self.oss_public_endpoint
+                and _valid_endpoint(self.oss_public_endpoint, allowed_schemes={"https"})
+            ),
+            "oss_internal_endpoint": bool(
+                self.oss_internal_endpoint
+                and _valid_endpoint(
+                    self.oss_internal_endpoint, allowed_schemes={"http", "https"}
+                )
+            ),
         }
         invalid.update(
-            name
-            for name, value in https_fields.items()
-            if value and urlparse(value).scheme.lower() != "https"
+            name for name, is_valid in structure_checks.items() if not is_valid
         )
 
-        database = urlparse(self.database_url)
-        if database.username == "platform" and database.password == "platform":
+        database = _parse_url(self.database_url)
+        if (
+            database
+            and database.username == "platform"
+            and database.password == "platform"
+        ):
             invalid.add("database_url")
 
         if invalid:
