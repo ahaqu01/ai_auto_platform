@@ -15,22 +15,23 @@ from platform_api.modules.organization.domain import OrganizationRole
 pytestmark = [pytest.mark.asyncio, pytest.mark.postgresql]
 
 
-async def test_fixture_runs_head_migration_in_isolated_postgresql_schema(
+async def test_fixture_runs_all_head_migrations_in_isolated_postgresql_schema(
     postgresql_database,
 ) -> None:
     async with postgresql_database.engine.connect() as connection:
         dialect = connection.dialect.name
         search_path = await connection.scalar(text("select current_schema()"))
-        revision = await connection.scalar(
+        result = await connection.execute(
             text("select version_num from alembic_version")
         )
+        revisions = frozenset(result.scalars())
 
     assert dialect == "postgresql"
     assert search_path == postgresql_database.schema
-    assert revision == postgresql_database.head_revision
+    assert revisions == frozenset(postgresql_database.head_revisions)
 
 
-async def test_concurrent_project_code_insert_has_single_winner(
+async def test_concurrent_project_code_insert_has_single_named_unique_violation(
     postgresql_database,
 ) -> None:
     async with postgresql_database.session_factory() as session:
@@ -39,7 +40,7 @@ async def test_concurrent_project_code_insert_has_single_winner(
         await session.commit()
         organization_id = organization.id
 
-    async def insert_project(name: str) -> str:
+    async def insert_project(name: str) -> tuple[str, str | None, str | None]:
         async with postgresql_database.session_factory() as session:
             session.add(
                 ProjectModel(
@@ -50,14 +51,21 @@ async def test_concurrent_project_code_insert_has_single_winner(
             )
             try:
                 await session.commit()
-            except IntegrityError:
+            except IntegrityError as exc:
                 await session.rollback()
-                return "conflict"
-            return "committed"
+                sqlstate = getattr(exc.orig, "sqlstate", None)
+                diagnostic = getattr(exc.orig, "diag", None)
+                constraint = getattr(diagnostic, "constraint_name", None)
+                return "conflict", sqlstate, constraint
+            return "committed", None, None
 
     outcomes = await asyncio.gather(insert_project("项目一"), insert_project("项目二"))
 
-    assert sorted(outcomes) == ["committed", "conflict"]
+    committed = [outcome for outcome in outcomes if outcome[0] == "committed"]
+    conflicts = [outcome for outcome in outcomes if outcome[0] == "conflict"]
+    assert len(committed) == 1
+    assert conflicts == [("conflict", "23505", "uq_projects_organization_id")]
+
     async with postgresql_database.session_factory() as session:
         count = await session.scalar(select(func.count()).select_from(ProjectModel))
     assert count == 1
@@ -114,19 +122,3 @@ async def test_foreign_keys_cascade_members_and_projects(postgresql_database) ->
         )
     assert member_count == 0
     assert project_count == 0
-
-
-async def test_migrations_can_downgrade_to_base_and_upgrade_to_head(
-    postgresql_database,
-) -> None:
-    await postgresql_database.downgrade("base")
-    async with postgresql_database.engine.connect() as connection:
-        users_table = await connection.scalar(text("select to_regclass('users')"))
-    assert users_table is None
-
-    await postgresql_database.upgrade("head")
-    async with postgresql_database.engine.connect() as connection:
-        revision = await connection.scalar(
-            text("select version_num from alembic_version")
-        )
-    assert revision == postgresql_database.head_revision

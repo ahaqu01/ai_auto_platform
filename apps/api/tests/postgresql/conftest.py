@@ -33,7 +33,7 @@ class PostgresqlDatabase:
     engine: AsyncEngine
     session_factory: async_sessionmaker
     alembic_config: Config
-    head_revision: str
+    head_revisions: tuple[str, ...]
 
     async def downgrade(self, revision: str) -> None:
         require_downgrade_confirmation(os.environ)
@@ -74,18 +74,19 @@ async def postgresql_database() -> AsyncIterator[PostgresqlDatabase]:
 
         isolated_url = _schema_url(target.url, schema)
         config = _alembic_config(isolated_url)
-        await asyncio.to_thread(command.upgrade, config, "head")
+        script = ScriptDirectory.from_config(config)
+        head_revisions = tuple(sorted(script.get_heads()))
+        assert head_revisions
+        await asyncio.to_thread(command.upgrade, config, "heads")
 
         test_engine = create_async_engine(isolated_url, pool_pre_ping=True)
         factory = async_sessionmaker(test_engine, expire_on_commit=False)
-        head_revision = ScriptDirectory.from_config(config).get_current_head()
-        assert head_revision is not None
         yield PostgresqlDatabase(
             schema=schema,
             engine=test_engine,
             session_factory=factory,
             alembic_config=config,
-            head_revision=head_revision,
+            head_revisions=head_revisions,
         )
     finally:
         if test_engine is not None:
