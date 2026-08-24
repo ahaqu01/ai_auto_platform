@@ -44,7 +44,7 @@ def resolve_hostname(hostname: str, port: int) -> tuple[str, ...]:
     return tuple(dict.fromkeys(answer[4][0] for answer in answers))
 
 
-def validate_public_url(
+def validated_public_addresses(
     value: str,
     *,
     resolver: AddressResolver = resolve_hostname,
@@ -88,6 +88,15 @@ def validate_public_url(
         raise PublicNetworkPolicyError(
             "public hostname resolved outside the public Internet"
         )
+    return addresses
+
+
+def validate_public_url(
+    value: str,
+    *,
+    resolver: AddressResolver = resolve_hostname,
+) -> str:
+    validated_public_addresses(value, resolver=resolver)
     return value
 
 
