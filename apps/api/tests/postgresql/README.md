@@ -1,12 +1,21 @@
 # PostgreSQL integration tests
 
-These tests require an explicit PostgreSQL URL and never fall back to the application database configuration.
+These tests must use the dedicated local/CI database and non-superuser role. They never fall back to application settings.
 
-From the repository root:
+For a fresh local Compose volume, `deploy/compose/initdb/01-test-database.sql` creates `platform_test`. Existing volumes must be provisioned once by an administrator using the same role/database definition.
+
+Run non-downgrade tests from the repository root:
 
 ```bash
-TEST_DATABASE_URL='postgresql+psycopg://test-user:test-password@127.0.0.1:5432/platform' \
-  .venv/bin/pytest apps/api/tests/postgresql -q
+TEST_DATABASE_CONFIRM=M0R05R01_TEST_DATABASE_ONLY \
+TEST_DATABASE_URL='postgresql+psycopg://platform_test:platform-test-local-only@127.0.0.1:5432/platform_test' \
+  .venv/bin/pytest apps/api/tests/postgresql -q -k 'not migrations_can_downgrade'
 ```
 
-The fixture creates a random `test_<uuid>` schema, runs Alembic to `head`, and drops only that schema with `CASCADE` during teardown. It never drops a database or the `public` schema. Use a dedicated test role in CI and Staging; the local Compose superuser is acceptable only on a developer host.
+The migration round-trip additionally requires:
+
+```bash
+TEST_DATABASE_ALLOW_DOWNGRADE=M0R05R01_DISPOSABLE_DATABASE_DOWNGRADE
+```
+
+The fixture validates the URL before connecting, then verifies `current_database()`, `current_user`, and that the role is not a superuser before any DDL. It creates only a random `test_<uuid>` schema and rechecks identity before cleanup.

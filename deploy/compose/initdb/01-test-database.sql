@@ -1,0 +1,5 @@
+\set ON_ERROR_STOP on
+
+CREATE ROLE platform_test LOGIN PASSWORD 'platform-test-local-only'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION;
+CREATE DATABASE platform_test OWNER platform_test;

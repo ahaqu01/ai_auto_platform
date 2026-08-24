@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-from alembic import command
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 
@@ -120,14 +119,12 @@ async def test_foreign_keys_cascade_members_and_projects(postgresql_database) ->
 async def test_migrations_can_downgrade_to_base_and_upgrade_to_head(
     postgresql_database,
 ) -> None:
-    await asyncio.to_thread(
-        command.downgrade, postgresql_database.alembic_config, "base"
-    )
+    await postgresql_database.downgrade("base")
     async with postgresql_database.engine.connect() as connection:
         users_table = await connection.scalar(text("select to_regclass('users')"))
     assert users_table is None
 
-    await asyncio.to_thread(command.upgrade, postgresql_database.alembic_config, "head")
+    await postgresql_database.upgrade("head")
     async with postgresql_database.engine.connect() as connection:
         revision = await connection.scalar(
             text("select version_num from alembic_version")
