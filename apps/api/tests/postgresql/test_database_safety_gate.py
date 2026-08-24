@@ -4,9 +4,12 @@ from .safety import (
     DOWNGRADE_CONFIRMATION,
     TEST_DATABASE_CONFIRMATION,
     DatabaseSafetyError,
+    assert_migrations_downgrade_safe,
+    require_database_destroy_confirmation,
     require_downgrade_confirmation,
     validate_test_database_target,
     verify_connected_database_identity,
+    verify_disposable_database,
 )
 
 SAFE_URL = (
@@ -101,3 +104,60 @@ async def test_connected_identity_and_non_superuser_are_required(row) -> None:
     target = validate_test_database_target(environment())
     with pytest.raises(DatabaseSafetyError, match="unsafe test target"):
         await verify_connected_database_identity(FakeConnection(row), target)
+
+
+def test_database_destroy_requires_independent_confirmation() -> None:
+    with pytest.raises(DatabaseSafetyError, match="destroy"):
+        require_database_destroy_confirmation(environment())
+
+    require_database_destroy_confirmation(
+        environment(TEST_DATABASE_ALLOW_DESTROY="M0R05R04_DESTROY_EPHEMERAL_DATABASE")
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'op.execute("CREATE ROLE escaped")',
+        'op.execute("CREATE EXTENSION unsafe")',
+        "op.execute(dynamic_sql)",
+        'op.execute("DROP SCHEMA public CASCADE")',
+        'op.create_table("escaped", sa.Column("id", sa.Integer()), schema="public")',
+        'op.execute("CREATE TABLE public.escaped (id integer)")',
+    ],
+)
+def test_migration_gate_rejects_global_or_schema_qualified_ddl(
+    tmp_path, source: str
+) -> None:
+    migration = tmp_path / "unsafe.py"
+    migration.write_text(source, encoding="utf-8")
+
+    with pytest.raises(DatabaseSafetyError, match="migration DDL"):
+        assert_migrations_downgrade_safe([migration])
+
+
+def test_migration_gate_accepts_current_unqualified_operations(tmp_path) -> None:
+    migration = tmp_path / "safe.py"
+    migration.write_text(
+        'op.create_table("widgets", sa.Column("id", sa.Integer()))',
+        encoding="utf-8",
+    )
+
+    assert_migrations_downgrade_safe([migration])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "row",
+    [
+        ("wrong_test", "M0R05R04:expected", 0),
+        ("platform_test", "M0R05R04:wrong", 0),
+        ("platform_test", "M0R05R04:expected", 1),
+    ],
+)
+async def test_disposable_database_requires_owner_marker_and_exclusivity(row) -> None:
+    target = validate_test_database_target(environment())
+    with pytest.raises(DatabaseSafetyError, match="unsafe disposable database"):
+        await verify_disposable_database(
+            FakeConnection(row), target, "M0R05R04:expected"
+        )

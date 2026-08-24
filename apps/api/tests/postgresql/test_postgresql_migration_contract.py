@@ -22,8 +22,9 @@ async def test_database_contains_every_script_head(postgresql_database) -> None:
 
 
 async def test_base_catalog_matches_explicit_allowlist_before_all_heads_roundtrip(
-    postgresql_database,
+    disposable_postgresql_database,
 ) -> None:
+    postgresql_database = disposable_postgresql_database
     await postgresql_database.downgrade("base")
     async with postgresql_database.engine.connect() as connection:
         inventory = await collect_schema_catalog(connection, postgresql_database.schema)
