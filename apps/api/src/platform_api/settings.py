@@ -7,6 +7,8 @@ from urllib.parse import ParseResult, urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from platform_api.common.public_network import is_public_hostname_candidate
+
 DEPLOYMENT_ENVIRONMENTS = {"staging", "production"}
 LOCAL_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
@@ -50,6 +52,11 @@ def _is_local_host(value: str) -> bool:
         return ip_address(normalized).is_loopback
     except ValueError:
         return False
+
+
+def _is_public_endpoint(value: str) -> bool:
+    hostname = _hostname(value)
+    return bool(hostname and is_public_hostname_candidate(hostname))
 
 
 def _valid_database_url(value: str) -> bool:
@@ -139,6 +146,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        frozen=True,
     )
 
     app_env: Literal["local", "test", "staging", "production"] = "local"
@@ -188,6 +196,16 @@ class Settings(BaseSettings):
             name
             for name, value in address_fields.items()
             if value and _is_local_host(value)
+        )
+
+        public_fields = {
+            "keycloak_issuer": self.keycloak_issuer,
+            "oss_public_endpoint": self.oss_public_endpoint,
+        }
+        invalid.update(
+            name
+            for name, value in public_fields.items()
+            if value and not _is_public_endpoint(value)
         )
 
         structure_checks = {
