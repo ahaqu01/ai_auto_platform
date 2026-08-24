@@ -7,6 +7,7 @@ trap 'rm -rf "$temporary_dir"' EXIT
 
 curl --fail --silent --show-error "${base_url}/" >"${temporary_dir}/index.html"
 grep -q '<title>AI 工程化与交付平台</title>' "${temporary_dir}/index.html"
+grep -q 'name="application-version" content="m0d-02"' "${temporary_dir}/index.html"
 
 curl --fail --silent --show-error "${base_url}/health/live" >"${temporary_dir}/health.json"
 python3 - "${temporary_dir}/health.json" <<'PY'
