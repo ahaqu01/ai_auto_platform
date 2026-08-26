@@ -4,14 +4,14 @@
 > Updated：2026-08-26
 > Git baseline：`5a356792f6b18b3c0ee63d52c307c18ed782bb69` (`rev-01r-reviewed`)
 > Database migration：`20260821_02 (head)`
-> Status：`REV-01R PASSED / M0R-06 IMPLEMENTED_LOCAL`
+> Status：`REV-01R PASSED / M0R-07 IMPLEMENTED_LOCAL`
 
 ## 当前裁决
 
 - REV-01R 已完成 Bugbot 与 Security Review：P1=0、P2=0，门禁通过。
 - 原 REV-01 的两个 P1 和五个 P2 全部关闭。
 - M0R-03/04/05 及整改包保持 `IMPLEMENTED_LOCAL / REVIEWED`；尚无 CI、Staging 与签署证据，不得标记 `ACCEPTED`。
-- 两个新增 P3 已登记，不阻塞 M0R-06。
+- 两个新增 P3 已登记，不阻塞当前后续计划。
 
 ## 已完成的关键能力
 
@@ -24,14 +24,13 @@
 ## 尚未完成
 
 - 私有受保护远端仓库、CI、CODEOWNERS 与 Staging 证据。
-- M0R-07 的 API 重启恢复、日志轮转及 liveness/readiness 分离。
 - 真实 Keycloak 演示部署和 BFF 服务端会话。
 - 完整业务闭环。
 
 ## 权威执行顺序
 
 1. M0R-06 文档治理已完成并通过本地验收。
-2. 执行 M0R-07 运行可靠性。
+2. M0R-07 运行可靠性已完成并通过本地验收。
 3. 建立 CI 与 Staging 门禁。
 4. 恢复业务开发：Keycloak 本地演示部署 → 登录/退出与管理台会话 → 后续业务页面。
 

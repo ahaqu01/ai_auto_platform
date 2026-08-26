@@ -11,8 +11,8 @@
 |---|---|---|
 | M0R-03/04/05 及整改包 | `IMPLEMENTED_LOCAL / REVIEWED` | REV-01R P1=0、P2=0；缺少 CI/Staging，不能标记 ACCEPTED |
 | REV-01R | `PASSED` | 双专项评审已完成；两个 P3 不阻塞 |
-| M0R-06 | `IN_PROGRESS` | 文档治理 |
-| M0R-07 | `PLANNED` | 运行可靠性 |
+| M0R-06 | IMPLEMENTED_LOCAL | 文档治理验收通过 |
+| M0R-07 | IMPLEMENTED_LOCAL | 运行可靠性验收通过 |
 
 历史验收结果中的“通过”只表示所列测试在当时通过，不自动升级当前里程碑状态。
 
