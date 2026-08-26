@@ -1,19 +1,25 @@
 # Acceptance Status Index
 
-> Updated: 2026-08-21  
-> Authoritative status source: `../CURRENT_STATUS.md`
+> Owner：QA 负责人
+> Updated：2026-08-26
+> Status：EVIDENCE INDEX
+> Authoritative current status：[../CURRENT_STATUS.md](../CURRENT_STATUS.md)
 
-## Status correction
+## 当前里程碑裁决
 
-| Slice | Previous record | Milestone review status | Reason |
-|---|---|---|---|
-| P0-Auth-01 OIDC JWT and tenant identity | Recorded as passed | `IMPLEMENTED_LOCAL / REOPENED` | No real Keycloak E2E or BFF; strict DTO, concurrent identity synchronization and full authorization matrix are not verified |
+| Slice | 当前状态 | 说明 |
+|---|---|---|
+| M0R-03/04/05 及整改包 | `IMPLEMENTED_LOCAL / REVIEWED` | REV-01R P1=0、P2=0；缺少 CI/Staging，不能标记 ACCEPTED |
+| REV-01R | `PASSED` | 双专项评审已完成；两个 P3 不阻塞 |
+| M0R-06 | `IN_PROGRESS` | 文档治理 |
+| M0R-07 | `PLANNED` | 运行可靠性 |
 
-The historical acceptance standard and result files are retained as execution evidence. Their `passed` wording means the tests listed at that time passed; it does not mean the milestone is `ACCEPTED` under the V2.0 gate model.
+历史验收结果中的“通过”只表示所列测试在当时通过，不自动升级当前里程碑状态。
 
-## Rules from this review onward
+## 记录规则
 
-1. Every result file must record Git commit, migration version, environment and exact commands.
-2. A passing local test suite can only reach `IMPLEMENTED_LOCAL`.
-3. Security and tenant slices require PostgreSQL plus real identity-provider verification.
-4. `ACCEPTED` requires the signatures and Staging evidence defined in `../plans/里程碑后开发评审与验收计划.md`.
+1. 记录 Git 提交、迁移版本、环境和精确命令。
+2. 本地测试通过最高只能达到 `IMPLEMENTED_LOCAL`。
+3. 安全与租户切片需要 PostgreSQL 及真实身份提供方验证。
+4. `ACCEPTED` 需要 CI、Staging 和签署证据。
+5. 历史记录不回写；状态纠偏写入新记录和 `CURRENT_STATUS.md`。

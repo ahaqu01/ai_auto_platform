@@ -1,44 +1,38 @@
 # Current Status
 
-> Updated: 2026-08-24
-> Git baseline before this review commit: `64bb1ea`
-> Database migration: `20260821_02 (head)`
-> Status: `M0-R remediation reopened after strict M0R-03/04/05 review`
+> Owner：交付负责人
+> Updated：2026-08-26
+> Git baseline：`5a356792f6b18b3c0ee63d52c307c18ed782bb69` (`rev-01r-reviewed`)
+> Database migration：`20260821_02 (head)`
+> Status：`REV-01R PASSED / M0R-06 IMPLEMENTED_LOCAL`
 
-## Implemented locally
+## 当前裁决
 
-- M0R-03: deterministic runtime OpenAPI export, controlled JSON snapshot and drift tests.
-- M0R-04: initial Staging/Production configuration guard, aligned local environment template and warning-free Compose parsing.
-- M0R-05: isolated PostgreSQL schema fixture, Alembic migrations and direct constraint/transaction/concurrency/cascade tests.
-- Last recorded full verification before strict review: API 36 passed with 82% line coverage; PostgreSQL 5 passed; Web test/build, npm audit, Go vet/race and OpenAPI check passed.
+- REV-01R 已完成 Bugbot 与 Security Review：P1=0、P2=0，门禁通过。
+- 原 REV-01 的两个 P1 和五个 P2 全部关闭。
+- M0R-03/04/05 及整改包保持 `IMPLEMENTED_LOCAL / REVIEWED`；尚无 CI、Staging 与签署证据，不得标记 `ACCEPTED`。
+- 两个新增 P3 已登记，不阻塞 M0R-06。
 
-These items remain `IMPLEMENTED_LOCAL`; none is `ACCEPTED`.
+## 已完成的关键能力
 
-## Strict review decision
+- 确定性 OpenAPI 导出、快照与无副作用隔离。
+- 生产配置、TLS、Keycloak issuer 与公网地址安全门禁。
+- JWKS 逐跳解析、地址固定、peer 与 TLS hostname 校验。
+- PostgreSQL 一次性数据库、迁移往返、catalog inventory 与 API 集成测试。
+- M0D-02 可视化管理台演示。
 
-- Bugbot: 2 P1, 4 P2 and 2 P3 findings.
-- Security Review: 1 High, 2 Medium and 2 Low findings, overlapping the Bugbot findings.
-- Consolidated milestone decision: 2 P1, 5 P2 and 3 P3; milestone acceptance failed.
-- Highest risk: PostgreSQL fixture target-database protection is insufficient for destructive migration/downgrade operations.
-- Second highest risk: deployment URL validation accepts malformed or unsupported endpoints.
-- M0R-05 downgrade tests are paused until the test-database safety gate is implemented.
+## 尚未完成
 
-## Not accepted
+- 私有受保护远端仓库、CI、CODEOWNERS 与 Staging 证据。
+- M0R-07 的 API 重启恢复、日志轮转及 liveness/readiness 分离。
+- 真实 Keycloak 演示部署和 BFF 服务端会话。
+- 完整业务闭环。
 
-- No private protected remote repository, CI, CODEOWNERS or Staging evidence.
-- No dedicated minimum-privilege PostgreSQL test database/role.
-- No structural URL validation, complete sensitive-address policy or immutable Settings.
-- No authenticated API lifecycle running on the PostgreSQL fixture.
-- No OpenAPI cross-version compatibility gate.
-- No real Keycloak login or BFF/session flow.
-- No complete organization membership/RBAC or project lifecycle.
-- No PostgreSQL RLS, audit, idempotency, outbox or optimistic locking.
-- No asset, Agent communication or Temporal workflow business loop.
+## 权威执行顺序
 
-## Authoritative next actions
+1. M0R-06 文档治理已完成并通过本地验收。
+2. 执行 M0R-07 运行可靠性。
+3. 建立 CI 与 Staging 门禁。
+4. 恢复业务开发：Keycloak 本地演示部署 → 登录/退出与管理台会话 → 后续业务页面。
 
-1. Read `docs/reviews/M0R-03至05里程碑严格评审报告.md`.
-2. Execute `docs/plans/M0R-03至05评审后整改与后续计划-V3.0.md`.
-3. Start with M0R-05R-01 test-database safety gate; do not rerun downgrade tests before it passes.
-4. Then complete M0R-04R, M0R-05R-02/03 and M0R-03R before M0R-06/07.
-5. Do not use the historical handoff or original eight-week Sprint plan as current completion status.
+文档治理规则见 [文档治理索引](README.md)。历史交接和验收记录仅作为当时证据。
