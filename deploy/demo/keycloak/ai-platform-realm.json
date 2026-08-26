@@ -1,0 +1,53 @@
+{
+  "realm": "ai-platform",
+  "enabled": true,
+  "displayName": "AI Auto Platform",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      {"name": "platform-admin"},
+      {"name": "org-owner"},
+      {"name": "org-admin"},
+      {"name": "org-member"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "platform-api",
+      "name": "Platform API audience",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "platform-bff",
+      "name": "Platform BFF",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bff-local-demo-only",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["http://127.0.0.1:8080/auth/callback"],
+      "webOrigins": ["http://127.0.0.1:8080"],
+      "attributes": {"pkce.code.challenge.method": "S256"},
+      "protocolMappers": [
+        {
+          "name": "platform-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "platform-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}
