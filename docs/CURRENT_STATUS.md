@@ -4,7 +4,7 @@
 > Updated：2026-08-26
 > Git baseline：`5a356792f6b18b3c0ee63d52c307c18ed782bb69` (`rev-01r-reviewed`)
 > Database migration：`20260821_02 (head)`
-> Status：`REV-01R PASSED / M0R-07 IMPLEMENTED_LOCAL`
+> Status：`REV-01R PASSED / CI-STAGING VERIFIED_BASELINE / BLOCKED_EXTERNAL`
 
 ## 当前裁决
 
@@ -31,7 +31,7 @@
 
 1. M0R-06 文档治理已完成并通过本地验收。
 2. M0R-07 运行可靠性已完成并通过本地验收。
-3. 建立 CI 与 Staging 门禁。
+3. CI 与工程 Staging 已验证；远端 PR/分支保护门禁待外部仓库。
 4. 恢复业务开发：Keycloak 本地演示部署 → 登录/退出与管理台会话 → 后续业务页面。
 
 文档治理规则见 [文档治理索引](README.md)。历史交接和验收记录仅作为当时证据。

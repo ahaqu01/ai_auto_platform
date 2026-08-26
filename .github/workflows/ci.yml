@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/agent/go.mod
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e 'apps/api[dev]'
+      - run: npm ci --prefix apps/web
+      - run: bash scripts/ci.sh
+
+  postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e 'apps/api[dev]'
+      - name: Create protected test role and database
+        env:
+          PGPASSWORD: ci-admin-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE platform_test LOGIN PASSWORD 'ci-test-only' CREATEDB NOSUPERUSER;
+          CREATE DATABASE platform_test OWNER platform_test;
+          SQL
+      - name: PostgreSQL integration and disposable downgrade
+        env:
+          APP_ENV: test
+          TEST_DATABASE_CONFIRM: M0R05R01_TEST_DATABASE_ONLY
+          TEST_DATABASE_URL: postgresql+psycopg://platform_test:ci-test-only@127.0.0.1:5432/platform_test
+          TEST_DATABASE_ADMIN_URL: postgresql+psycopg://postgres:ci-admin-only@127.0.0.1:5432/postgres
+          TEST_DATABASE_ALLOW_DOWNGRADE: M0R05R01_DISPOSABLE_DATABASE_DOWNGRADE
+          TEST_DATABASE_ALLOW_DESTROY: M0R05R04_DESTROY_EPHEMERAL_DATABASE
+        run: .venv/bin/pytest apps/api/tests/postgresql -q
