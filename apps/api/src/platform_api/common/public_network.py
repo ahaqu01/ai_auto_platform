@@ -48,7 +48,7 @@ def validated_public_addresses(
     value: str,
     *,
     resolver: AddressResolver = resolve_hostname,
-) -> str:
+) -> tuple[str, ...]:
     try:
         parsed = urlparse(value)
         port = parsed.port or 443

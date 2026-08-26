@@ -15,6 +15,7 @@
 | M0R-07 | IMPLEMENTED_LOCAL | 运行可靠性验收通过 |
 | CI/Staging baseline | VERIFIED_STAGING / BLOCKED_EXTERNAL | 服务器验证通过；远端协作门禁待仓库 |
 | M1-01 Keycloak IaC | IMPLEMENTED_LOCAL | Realm/Client/Role 与空卷重建验收通过 |
+| M1-PRE-01 前置健壮性整改 | IMPLEMENTED_LOCAL | 两个 P3 与 CI/doc checker 健壮性验收通过 |
 
 历史验收结果中的“通过”只表示所列测试在当时通过，不自动升级当前里程碑状态。
 

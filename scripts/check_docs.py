@@ -16,15 +16,23 @@ for document in (root / "docs").rglob("*.md"):
         if not (document.parent / target).resolve().exists():
             errors.append(f"{document.relative_to(root)} -> {target}")
 
-status = (root / "docs" / "CURRENT_STATUS.md").read_text(encoding="utf-8")
-for required in ("REV-01R PASSED", "M0R-06", "M0R-07", "CI", "Staging", "Keycloak"):
-    if required not in status:
-        errors.append(f"CURRENT_STATUS missing: {required}")
+status_path = root / "docs" / "CURRENT_STATUS.md"
+status = status_path.read_text(encoding="utf-8")
+if not status.startswith("# Current Status\n"):
+    errors.append("CURRENT_STATUS must start with '# Current Status'")
+for field in ("Owner", "Updated", "Status"):
+    if not re.search(rf"^> {field}[：:].+$", status, re.MULTILINE):
+        errors.append(f"CURRENT_STATUS missing metadata: {field}")
+if "## 权威执行顺序" not in status:
+    errors.append("CURRENT_STATUS missing authoritative execution order")
 
 index = (root / "docs" / "README.md").read_text(encoding="utf-8")
-for required in ("Owner", "CURRENT", "EVIDENCE", "SUPERSEDED", "V2.1", "V3.0", "V4.0"):
-    if required not in index:
-        errors.append(f"docs/README missing: {required}")
+for field in ("Owner", "版本", "状态", "更新日期"):
+    if not re.search(rf"^> {field}[：:].+$", index, re.MULTILINE):
+        errors.append(f"docs/README missing metadata: {field}")
+for state in ("CURRENT", "EVIDENCE", "SUPERSEDED", "DRAFT"):
+    if f"`{state}`" not in index:
+        errors.append(f"docs/README missing state definition: {state}")
 
 if errors:
     print("DOC CHECK FAILED")

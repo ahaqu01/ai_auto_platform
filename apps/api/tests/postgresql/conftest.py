@@ -168,6 +168,7 @@ async def postgresql_database() -> AsyncIterator[PostgresqlDatabase]:
 async def disposable_postgresql_database() -> AsyncIterator[
     DisposablePostgresqlDatabase
 ]:
+    require_database_destroy_confirmation(os.environ)
     base_target = _test_database_target()
     admin_url = validate_admin_database_url(os.environ)
     suffix = uuid4().hex
