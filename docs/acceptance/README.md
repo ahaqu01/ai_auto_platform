@@ -60,3 +60,7 @@ M1-09 租户纵深防御：IMPLEMENTED_LOCAL / PASSED_LOCAL。受限运行角色
 ## M1-10 当前状态
 
 M1-10 Web 组织/项目闭环：IMPLEMENTED_LOCAL / PASSED_LOCAL。BFF 登录入口、组织切换、成员管理、项目管理、幂等和 If-Match 客户端协议、Web 测试与 Demo SPA 路由通过；外部签收仍受阻。
+
+## M1 总体验收状态
+
+M1 总体验收：NOT ACCEPTED / TESTS_FAILED / BLOCKED_EXTERNAL。API/PostgreSQL 193 项、Web 9 项、Keycloak service token、RLS/审计及 Demo 通过；覆盖率门槛、真实用户浏览器 E2E、Python/Go SCA/SAST、远程 CI/外部 Staging 矩阵和四方签字未通过或阻塞。详见根目录 `M1总体验收报告.md`。
