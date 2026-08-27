@@ -2,27 +2,35 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from platform_api.auth.dependencies import CurrentUser
+from platform_api.common.api_contract import (
+    PROTECTED_ERROR_RESPONSES,
+    StrictModel,
+    StrictOrmModel,
+)
 from platform_api.common.errors import DomainError
 from platform_api.db.models import OrganizationMemberModel, OrganizationModel
 from platform_api.db.session import get_session
 from platform_api.modules.organization.domain import OrganizationRole
 
-router = APIRouter(prefix="/api/v1/organizations", tags=["organizations"])
+router = APIRouter(
+    prefix="/api/v1/organizations",
+    tags=["organizations"],
+    responses=PROTECTED_ERROR_RESPONSES,
+)
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
 
-class OrganizationCreate(BaseModel):
+class OrganizationCreate(StrictModel):
     name: str = Field(min_length=2, max_length=120)
 
 
-class OrganizationRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class OrganizationRead(StrictOrmModel):
     id: UUID
     name: str
 

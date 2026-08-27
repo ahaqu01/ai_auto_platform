@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from platform_api.auth.bff import BffService, get_bff_service
+from platform_api.common.api_contract import AUTH_SESSION_ERROR_RESPONSES
 from platform_api.common.errors import DomainError
 from platform_api.settings import Settings, get_settings
 
@@ -67,7 +68,11 @@ async def browser_session(
     }
 
 
-@router.post("/logout", status_code=204)
+@router.post(
+    "/logout",
+    status_code=204,
+    responses=AUTH_SESSION_ERROR_RESPONSES,
+)
 async def logout(
     request: Request,
     response: Response,

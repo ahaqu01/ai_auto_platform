@@ -1,16 +1,16 @@
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import text
 
+from platform_api.common.api_contract import StrictModel
 from platform_api.db.session import engine
 from platform_api.settings import get_settings
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(StrictModel):
     status: str
     service: str
     version: str

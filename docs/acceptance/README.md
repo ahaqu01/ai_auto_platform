@@ -32,3 +32,8 @@
 ## M1-03 补充状态
 
 M1-03 身份同步：IMPLEMENTED_LOCAL / PASSED_LOCAL。邮箱非唯一、OIDC 身份键原子 upsert、20 路 PostgreSQL 并发及 Demo 迁移已通过；外部签章仍阻塞。
+
+
+## M1-04 补充状态
+
+M1-04 DTO、错误与契约基线：IMPLEMENTED_LOCAL / PASSED_LOCAL。extra forbid、Problem Details、401 Bearer challenge、OpenAPI 固定响应及 Demo 已通过；外部签章仍阻塞。

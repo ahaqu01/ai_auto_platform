@@ -9,6 +9,7 @@ from platform_api.api.auth import router as auth_router
 from platform_api.api.health import router as health_router
 from platform_api.api.organizations import router as organizations_router
 from platform_api.api.projects import router as projects_router
+from platform_api.common.api_contract import ProblemDetails
 from platform_api.common.errors import DomainError
 from platform_api.settings import get_settings
 
@@ -31,19 +32,22 @@ def create_app() -> FastAPI:
         return response
 
     @app.exception_handler(DomainError)
-    async def domain_error_handler(request: Request, exc: DomainError):
+    async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         trace_id = getattr(request.state, "trace_id", uuid4().hex)
+        problem = ProblemDetails(
+            type=f"https://docs.example.com/problems/{exc.code.lower()}",
+            title=exc.safe_detail,
+            status=exc.http_status,
+            code=exc.code,
+            detail=exc.safe_detail,
+            instance=request.url.path,
+            traceId=trace_id,
+        )
+        headers = {"WWW-Authenticate": "Bearer"} if exc.http_status == 401 else None
         return JSONResponse(
             status_code=exc.http_status,
-            content={
-                "type": f"https://docs.example.com/problems/{exc.code.lower()}",
-                "title": exc.safe_detail,
-                "status": exc.http_status,
-                "code": exc.code,
-                "detail": exc.safe_detail,
-                "instance": request.url.path,
-                "traceId": trace_id,
-            },
+            content=problem.model_dump(),
+            headers=headers,
         )
 
     app.include_router(auth_router)
