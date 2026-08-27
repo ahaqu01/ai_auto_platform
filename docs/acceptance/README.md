@@ -27,3 +27,8 @@
 3. 安全与租户切片需要 PostgreSQL 及真实身份提供方验证。
 4. `ACCEPTED` 需要 CI、Staging 和签署证据。
 5. 历史记录不回写；状态纠偏写入新记录和 `CURRENT_STATUS.md`。
+
+
+## M1-03 补充状态
+
+M1-03 身份同步：IMPLEMENTED_LOCAL / PASSED_LOCAL。邮箱非唯一、OIDC 身份键原子 upsert、20 路 PostgreSQL 并发及 Demo 迁移已通过；外部签章仍阻塞。

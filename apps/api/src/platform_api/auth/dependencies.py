@@ -5,7 +5,8 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,38 +51,40 @@ def get_bff_id_token_verifier() -> TokenVerifier:
 async def _synchronize_user(
     session: AsyncSession, identity: IdentityClaims
 ) -> UserModel:
-    user = await session.scalar(
-        select(UserModel).where(
-            UserModel.external_issuer == identity.issuer,
-            UserModel.external_subject == identity.subject,
+    bind = session.get_bind()
+    if bind.dialect.name == "postgresql":
+        insert = postgresql_insert
+    elif bind.dialect.name == "sqlite":
+        insert = sqlite_insert
+    else:
+        raise RuntimeError(
+            f"atomic identity synchronization is unsupported for {bind.dialect.name}"
         )
-    )
-    if user is None:
-        user = UserModel(
-            external_issuer=identity.issuer,
-            external_subject=identity.subject,
-            email=identity.email or f"{identity.subject}@identity.invalid",
-            display_name=identity.display_name,
-        )
-        session.add(user)
-        try:
-            await session.commit()
-        except IntegrityError as exc:
-            await session.rollback()
-            raise DomainError("IDENTITY_CONFLICT", "身份资料冲突", 409) from exc
-        await session.refresh(user)
-        return user
 
-    changed = False
-    if identity.email and user.email != identity.email:
-        user.email = identity.email
-        changed = True
-    if identity.display_name and user.display_name != identity.display_name:
-        user.display_name = identity.display_name
-        changed = True
-    if changed:
+    statement = insert(UserModel).values(
+        external_issuer=identity.issuer,
+        external_subject=identity.subject,
+        email=identity.email or f"{identity.subject}@identity.invalid",
+        display_name=identity.display_name,
+    )
+    statement = statement.on_conflict_do_update(
+        index_elements=["external_issuer", "external_subject"],
+        set_={
+            "email": statement.excluded.email if identity.email else UserModel.email,
+            "display_name": (
+                statement.excluded.display_name
+                if identity.display_name
+                else UserModel.display_name
+            ),
+        },
+    ).returning(UserModel)
+    try:
+        result = await session.execute(statement)
+        user = result.scalar_one()
         await session.commit()
-        await session.refresh(user)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError("IDENTITY_CONFLICT", "身份同步冲突", 409) from exc
     return user
 
 

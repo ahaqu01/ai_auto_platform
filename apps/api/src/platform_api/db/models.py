@@ -20,7 +20,7 @@ class UserModel(IdMixin, TimestampMixin, Base):
 
     external_issuer: Mapped[str | None] = mapped_column(String(500), nullable=True)
     external_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
 

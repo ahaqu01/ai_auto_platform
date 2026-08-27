@@ -1,40 +1,29 @@
 # Current Status
 
-> Owner：交付负责人
-> Updated：2026-08-26
-> Git baseline：`5a356792f6b18b3c0ee63d52c307c18ed782bb69` (`rev-01r-reviewed`)
-> Database migration：`20260821_02 (head)`
-> Status：`REV-01R PASSED / M1-02 IMPLEMENTED_LOCAL / BLOCKED_EXTERNAL`
+> Owner：平台工程
+> Updated：2026-08-27
+> Git baseline：M1-03 提交（标签 m1-03-atomic-identity-implemented）
+> Database migration：20260827_03 (head)
+> Status：M1-03 IMPLEMENTED_LOCAL / PASSED_LOCAL / BLOCKED_EXTERNAL
 
-## 当前裁决
+## 当前结论
 
-- REV-01R 已完成 Bugbot 与 Security Review：P1=0、P2=0，门禁通过。
-- 原 REV-01 的两个 P1 和五个 P2 全部关闭。
-- M0R-03/04/05 及整改包保持 `IMPLEMENTED_LOCAL / REVIEWED`；尚无 CI、Staging 与签署证据，不得标记 `ACCEPTED`。
-- M1-PRE-01 已关闭两个新增 P3，并完成 CI 与文档检查器健壮性整改。
-- M1-02 已完成 BFF 登录/退出、Redis 服务端会话、Cookie/CSRF 边界与管理台会话。
+- REV-01R 双专项复审通过，P1=0、P2=0。
+- M0R-06、M0R-07、CI/Staging 本地基线、M1-01、M1-PRE-01、M1-02 均已完成本地实现和验收。
+- M1-03 已删除邮箱唯一约束，并以 PostgreSQL 原子 upsert 完成身份同步。
+- 同邮箱不同 subject 不自动合并；同一身份 20 路并发首次登录仅生成一个用户。
+- Demo 已升级至 20260827_03，API liveness/readiness 通过。
 
-## 已完成的关键能力
+## 状态边界
 
-- 确定性 OpenAPI 导出、快照与无副作用隔离。
-- 生产配置、TLS、Keycloak issuer 与公网地址安全门禁。
-- JWKS 逐跳解析、地址固定、peer 与 TLS hostname 校验。
-- PostgreSQL 一次性数据库、迁移往返、catalog inventory 与 API 集成测试。
-- M0D-02 可视化管理台演示。
-
-## 尚未完成
-
-- 私有受保护远端仓库、CI、CODEOWNERS 与 Staging 证据。
-- 真实 Keycloak 演示部署和 BFF 服务端会话。
-- 完整业务闭环。
+- 本地代码、真实 PostgreSQL、迁移往返、Demo 和质量门已有证据。
+- 私有远端推送、PR、CI 平台运行记录及外部 Staging 签章仍缺授权，因此不标记 ACCEPTED。
+- M1-03 不扩展到 RLS、审计、幂等或 Outbox；这些按后续阶段独立封顶。
 
 ## 权威执行顺序
 
-1. M0R-06 文档治理已完成并通过本地验收。
-2. M0R-07 运行可靠性已完成并通过本地验收。
-3. CI 与工程 Staging 已验证；远端 PR/分支保护门禁待外部仓库。
-4. M1-01 Keycloak 本地演示部署已完成。
-5. M1-PRE-01 前置健壮性整改已完成并通过本地验收。
-6. M1-02 BFF 登录/退出与管理台会话已完成；下一步执行 M1-03 邮箱唯一约束整改与原子身份同步。
+1. 按计划执行 M1-04。
+2. 继续按 M1-05 至 M1-10 推进。
+3. 进入资产/任务域前，强制完成 M1-08 和 M1-09 并通过真实 PostgreSQL 验收。
 
-文档治理规则见 [文档治理索引](README.md)。历史交接和验收记录仅作为当时证据。
+文档索引见 [文档治理入口](README.md)，验收证据见 [acceptance](acceptance/README.md)。
