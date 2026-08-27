@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -60,7 +61,7 @@ async def authenticated_api(tmp_path: Path):
 
 
 def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}", "Idempotency-Key": uuid.uuid4().hex}
 
 
 @pytest.mark.asyncio

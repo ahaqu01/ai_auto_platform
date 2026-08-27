@@ -830,6 +830,24 @@
       },
       "post": {
         "operationId": "create_organization_api_v1_organizations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1689,6 +1707,22 @@
               "format": "uuid",
               "title": "Organization Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

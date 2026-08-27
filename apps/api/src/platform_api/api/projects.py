@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +20,12 @@ from platform_api.common.api_contract import (
     StrictOrmModel,
 )
 from platform_api.common.errors import DomainError
+from platform_api.common.reliability import (
+    begin_idempotent_command,
+    complete_idempotent_command,
+    record_audit,
+    record_outbox,
+)
 from platform_api.db.models import (
     OrganizationMemberModel,
     ProjectMemberModel,
@@ -198,12 +205,27 @@ async def create_project(
     current_user: CurrentUser,
     session: DbSession,
     response: Response,
-) -> ProjectModel:
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ProjectModel | JSONResponse:
     membership = await require_organization_member(
         session, organization_id, current_user.id
     )
     if membership.role not in {OrganizationRole.OWNER, OrganizationRole.ADMIN}:
         raise DomainError("ORGANIZATION_ADMIN_REQUIRED", "需要企业管理员权限", 403)
+    decision = await begin_idempotent_command(
+        session,
+        actor_id=current_user.id,
+        route_key=f"organizations.{organization_id}.projects.create",
+        idempotency_key=idempotency_key,
+        request_payload=payload.model_dump(mode="json"),
+    )
+    if decision.is_replay:
+        return JSONResponse(
+            status_code=decision.replay_status,
+            content=decision.replay_body,
+            headers={"Idempotent-Replayed": "true"},
+        )
     project = ProjectModel(
         organization_id=organization_id,
         code=payload.code,
@@ -224,9 +246,37 @@ async def create_project(
             role=ProjectRole.ADMIN,
         )
     )
+    trace_id = getattr(request.state, "trace_id", None)
+    record_audit(
+        session,
+        actor_id=current_user.id,
+        action="project.create",
+        resource_type="project",
+        resource_id=project.id,
+        organization_id=organization_id,
+        project_id=project.id,
+        trace_id=trace_id,
+        detail={"code": project.code},
+    )
+    record_outbox(
+        session,
+        organization_id=organization_id,
+        aggregate_type="project",
+        aggregate_id=project.id,
+        event_type="ProjectCreated.v1",
+        aggregate_version=project.version,
+        trace_id=trace_id,
+        payload={"code": project.code},
+    )
+    body = ProjectRead.model_validate(project).model_dump(mode="json")
+    complete_idempotent_command(decision, response_status=201, response_body=body)
     await _commit_project(session, project)
     response.headers["ETag"] = _etag(project.version)
-    return project
+    return JSONResponse(
+        status_code=201,
+        content=body,
+        headers={"ETag": _etag(project.version), "Idempotent-Replayed": "false"},
+    )
 
 
 @router.get("", response_model=list[ProjectRead])
@@ -319,11 +369,42 @@ async def _change_status(
     project: ProjectModel,
     target: ProjectStatus,
     if_match: str | None,
+    actor_id: UUID,
+    trace_id: str | None,
 ) -> ProjectModel:
     _check_version(project, if_match)
     project.status = target
     project.archived_at = (
         datetime.now(UTC) if target is ProjectStatus.ARCHIVED else None
+    )
+    action = (
+        "project.archive" if target is ProjectStatus.ARCHIVED else "project.restore"
+    )
+    event_type = (
+        "ProjectArchived.v1"
+        if target is ProjectStatus.ARCHIVED
+        else "ProjectRestored.v1"
+    )
+    record_audit(
+        session,
+        actor_id=actor_id,
+        action=action,
+        resource_type="project",
+        resource_id=project.id,
+        organization_id=project.organization_id,
+        project_id=project.id,
+        trace_id=trace_id,
+        detail={"targetStatus": target.value},
+    )
+    record_outbox(
+        session,
+        organization_id=project.organization_id,
+        aggregate_type="project",
+        aggregate_id=project.id,
+        event_type=event_type,
+        aggregate_version=project.version + 1,
+        trace_id=trace_id,
+        payload={"status": target.value},
     )
     return await _commit_project(session, project)
 
@@ -335,12 +416,20 @@ async def archive_project(
     current_user: CurrentUser,
     session: DbSession,
     response: Response,
+    request: Request,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> ProjectModel:
     project = await _require_project_admin(
         session, organization_id, project_id, current_user.id
     )
-    project = await _change_status(session, project, ProjectStatus.ARCHIVED, if_match)
+    project = await _change_status(
+        session,
+        project,
+        ProjectStatus.ARCHIVED,
+        if_match,
+        current_user.id,
+        getattr(request.state, "trace_id", None),
+    )
     response.headers["ETag"] = _etag(project.version)
     return project
 
@@ -352,12 +441,20 @@ async def restore_project(
     current_user: CurrentUser,
     session: DbSession,
     response: Response,
+    request: Request,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> ProjectModel:
     project = await _require_project_admin(
         session, organization_id, project_id, current_user.id
     )
-    project = await _change_status(session, project, ProjectStatus.ACTIVE, if_match)
+    project = await _change_status(
+        session,
+        project,
+        ProjectStatus.ACTIVE,
+        if_match,
+        current_user.id,
+        getattr(request.state, "trace_id", None),
+    )
     response.headers["ETag"] = _etag(project.version)
     return project
 

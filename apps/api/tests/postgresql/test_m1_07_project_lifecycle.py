@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 import pytest
 
@@ -6,7 +7,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.postgresql]
 
 
 def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}", "Idempotency-Key": uuid.uuid4().hex}
 
 
 async def invite(

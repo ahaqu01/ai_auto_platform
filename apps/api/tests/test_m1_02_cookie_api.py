@@ -69,7 +69,11 @@ async def test_cookie_authenticates_api_and_write_requires_origin_csrf(
         accepted = await client.post(
             "/api/v1/organizations",
             json={"name": "Accepted"},
-            headers={"origin": "http://testserver", "x-csrf-token": "csrf-value"},
+            headers={
+                "origin": "http://testserver",
+                "x-csrf-token": "csrf-value",
+                "Idempotency-Key": "cookie-create-test-key",
+            },
         )
     await engine.dispose()
 

@@ -5,6 +5,7 @@ from typing import ClassVar
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -118,4 +120,58 @@ class ProjectMemberModel(TimestampMixin, Base):
     )
     role: Mapped[ProjectRole] = mapped_column(
         Enum(ProjectRole, native_enum=False, length=16), nullable=False
+    )
+
+
+class AuditEventModel(IdMixin, Base):
+    __tablename__ = "audit_events"
+
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    organization_id: Mapped[UUID | None] = mapped_column(index=True)
+    project_id: Mapped[UUID | None] = mapped_column()
+    actor_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    actor_id: Mapped[UUID] = mapped_column(nullable=False)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[UUID] = mapped_column(nullable=False)
+    result: Mapped[str] = mapped_column(String(20), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    trace_id: Mapped[str | None] = mapped_column(String(64))
+    detail: Mapped[dict[str, object]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+
+
+class IdempotencyRecordModel(TimestampMixin, Base):
+    __tablename__ = "idempotency_records"
+
+    actor_id: Mapped[UUID] = mapped_column(primary_key=True)
+    route_key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    response_status: Mapped[int | None] = mapped_column(Integer)
+    response_body: Mapped[dict[str, object] | None] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=False
+    )
+
+
+class OutboxEventModel(IdMixin, Base):
+    __tablename__ = "outbox_events"
+
+    organization_id: Mapped[UUID | None] = mapped_column(index=True)
+    aggregate_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    aggregate_id: Mapped[UUID] = mapped_column(nullable=False)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
     )

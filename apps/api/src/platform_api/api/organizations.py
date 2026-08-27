@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Header, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +18,12 @@ from platform_api.common.api_contract import (
     StrictOrmModel,
 )
 from platform_api.common.errors import DomainError
+from platform_api.common.reliability import (
+    begin_idempotent_command,
+    complete_idempotent_command,
+    record_audit,
+    record_outbox,
+)
 from platform_api.db.models import (
     OrganizationInviteModel,
     OrganizationMemberModel,
@@ -114,8 +121,25 @@ def _invite_read(invite: OrganizationInviteModel, token: str | None = None):
 
 @router.post("", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
 async def create_organization(
-    payload: OrganizationCreate, current_user: CurrentUser, session: DbSession
-) -> OrganizationModel:
+    payload: OrganizationCreate,
+    current_user: CurrentUser,
+    session: DbSession,
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> OrganizationModel | JSONResponse:
+    decision = await begin_idempotent_command(
+        session,
+        actor_id=current_user.id,
+        route_key="organizations.create",
+        idempotency_key=idempotency_key,
+        request_payload=payload.model_dump(mode="json"),
+    )
+    if decision.is_replay:
+        return JSONResponse(
+            status_code=decision.replay_status,
+            content=decision.replay_body,
+            headers={"Idempotent-Replayed": "true"},
+        )
     organization = OrganizationModel(name=payload.name.strip())
     session.add(organization)
     await session.flush()
@@ -126,13 +150,39 @@ async def create_organization(
             role=OrganizationRole.OWNER,
         )
     )
+    trace_id = getattr(request.state, "trace_id", None)
+    record_audit(
+        session,
+        actor_id=current_user.id,
+        action="organization.create",
+        resource_type="organization",
+        resource_id=organization.id,
+        organization_id=organization.id,
+        trace_id=trace_id,
+        detail={"name": organization.name},
+    )
+    record_outbox(
+        session,
+        organization_id=organization.id,
+        aggregate_type="organization",
+        aggregate_id=organization.id,
+        event_type="OrganizationCreated.v1",
+        aggregate_version=1,
+        trace_id=trace_id,
+        payload={"name": organization.name},
+    )
+    body = OrganizationRead.model_validate(organization).model_dump(mode="json")
+    complete_idempotent_command(decision, response_status=201, response_body=body)
     try:
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
         raise DomainError("ORGANIZATION_CONFLICT", "企业创建冲突", 409) from exc
-    await session.refresh(organization)
-    return organization
+    return JSONResponse(
+        status_code=201,
+        content=body,
+        headers={"Idempotent-Replayed": "false"},
+    )
 
 
 @router.get("", response_model=list[OrganizationRead])
@@ -335,9 +385,31 @@ async def remove_member(
     member_id: UUID,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> Response:
     await remove_organization_member(
         session, organization_id, current_user.id, member_id
+    )
+    trace_id = getattr(request.state, "trace_id", None)
+    record_audit(
+        session,
+        actor_id=current_user.id,
+        action="organization.member.remove",
+        resource_type="organization_member",
+        resource_id=member_id,
+        organization_id=organization_id,
+        trace_id=trace_id,
+        detail={"memberId": str(member_id)},
+    )
+    record_outbox(
+        session,
+        organization_id=organization_id,
+        aggregate_type="organization",
+        aggregate_id=organization_id,
+        event_type="OrganizationMemberRemoved.v1",
+        aggregate_version=1,
+        trace_id=trace_id,
+        payload={"memberId": str(member_id)},
     )
     await session.commit()
     return Response(status_code=204)

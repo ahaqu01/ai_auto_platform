@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from sqlalchemy import func, select
 
@@ -7,7 +9,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.postgresql]
 
 
 def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}", "Idempotency-Key": uuid.uuid4().hex}
 
 
 async def test_invitation_and_owner_admin_member_rbac_matrix(postgresql_api) -> None:

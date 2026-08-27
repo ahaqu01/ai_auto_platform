@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from sqlalchemy import func, select, text
 
@@ -11,7 +13,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.postgresql]
 
 
 def bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}", "Idempotency-Key": uuid.uuid4().hex}
 
 
 async def test_authenticated_tenant_lifecycle_runs_through_postgresql(
