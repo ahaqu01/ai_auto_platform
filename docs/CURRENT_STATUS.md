@@ -4,7 +4,7 @@
 > Updated：2026-08-26
 > Git baseline：`5a356792f6b18b3c0ee63d52c307c18ed782bb69` (`rev-01r-reviewed`)
 > Database migration：`20260821_02 (head)`
-> Status：`REV-01R PASSED / M1-PRE-01 IMPLEMENTED_LOCAL / BLOCKED_EXTERNAL`
+> Status：`REV-01R PASSED / M1-02 IMPLEMENTED_LOCAL / BLOCKED_EXTERNAL`
 
 ## 当前裁决
 
@@ -12,6 +12,7 @@
 - 原 REV-01 的两个 P1 和五个 P2 全部关闭。
 - M0R-03/04/05 及整改包保持 `IMPLEMENTED_LOCAL / REVIEWED`；尚无 CI、Staging 与签署证据，不得标记 `ACCEPTED`。
 - M1-PRE-01 已关闭两个新增 P3，并完成 CI 与文档检查器健壮性整改。
+- M1-02 已完成 BFF 登录/退出、Redis 服务端会话、Cookie/CSRF 边界与管理台会话。
 
 ## 已完成的关键能力
 
@@ -33,6 +34,7 @@
 2. M0R-07 运行可靠性已完成并通过本地验收。
 3. CI 与工程 Staging 已验证；远端 PR/分支保护门禁待外部仓库。
 4. M1-01 Keycloak 本地演示部署已完成。
-5. M1-PRE-01 前置健壮性整改已完成并通过本地验收；下一步执行 M1-02 BFF 登录/退出与管理台会话。
+5. M1-PRE-01 前置健壮性整改已完成并通过本地验收。
+6. M1-02 BFF 登录/退出与管理台会话已完成；下一步执行 M1-03 邮箱唯一约束整改与原子身份同步。
 
 文档治理规则见 [文档治理索引](README.md)。历史交接和验收记录仅作为当时证据。

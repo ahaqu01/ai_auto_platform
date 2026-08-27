@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
+import { useBrowserSession } from './auth'
+
+const session = useBrowserSession()
+onMounted(() => session.loadSession())
 
 const navigation = [
   { label: '工作台', icon: '⌂', active: true },
@@ -57,7 +62,13 @@ const navigation = [
         </div>
         <div class="topbar-actions">
           <span class="phase-badge">M0D · Phase 1</span>
-          <div class="user-avatar" aria-label="当前用户">演示</div>
+          <div v-if="session.user.value" class="session-actions">
+            <div class="user-avatar" aria-label="当前用户">{{ session.user.value.displayName.slice(0, 2) }}</div>
+            <button type="button" class="button button-secondary" @click="session.logout()">退出</button>
+          </div>
+          <button v-else type="button" class="button button-primary" :disabled="session.loading.value" @click="session.login()">
+            登录
+          </button>
         </div>
       </header>
       <main class="app-content">

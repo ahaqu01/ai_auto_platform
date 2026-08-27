@@ -179,7 +179,14 @@ class Settings(BaseSettings):
     temporal_address: str | None = None
     temporal_namespace: str = "default"
     keycloak_issuer: str | None = None
+    keycloak_internal_issuer: str | None = None
     oidc_audience: str | None = None
+    bff_client_id: str = "platform-bff"
+    bff_client_secret: str | None = None
+    bff_public_origin: str = "http://testserver"
+    bff_callback_url: str = "http://testserver/auth/callback"
+    bff_cookie_name: str = "platform_session"
+    bff_session_ttl_seconds: int = 28800
     oss_public_endpoint: str | None = None
     oss_internal_endpoint: str | None = None
     oss_bucket: str | None = None
