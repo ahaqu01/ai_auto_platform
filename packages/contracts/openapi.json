@@ -231,12 +231,7 @@
         "additionalProperties": false,
         "properties": {
           "role": {
-            "enum": [
-              "ADMIN",
-              "MEMBER"
-            ],
-            "title": "Role",
-            "type": "string"
+            "$ref": "#/components/schemas/OrganizationRole"
           }
         },
         "required": [

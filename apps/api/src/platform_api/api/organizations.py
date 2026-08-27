@@ -27,6 +27,8 @@ from platform_api.db.session import get_session
 from platform_api.modules.organization.domain import OrganizationRole
 
 from .organization_access import (
+    change_member_role,
+    remove_organization_member,
     require_organization_admin,
     require_organization_member,
 )
@@ -94,7 +96,7 @@ class MemberRead(StrictModel):
 
 
 class MemberRoleUpdate(StrictModel):
-    role: InvitableRole
+    role: OrganizationRole
 
 
 def _invite_read(invite: OrganizationInviteModel, token: str | None = None):
@@ -305,24 +307,6 @@ async def list_members(
     ]
 
 
-async def _manageable_member(
-    session: AsyncSession, organization_id: UUID, user_id: UUID
-) -> OrganizationMemberModel:
-    target = await session.scalar(
-        select(OrganizationMemberModel).where(
-            OrganizationMemberModel.organization_id == organization_id,
-            OrganizationMemberModel.user_id == user_id,
-        )
-    )
-    if not target:
-        raise DomainError("MEMBER_NOT_FOUND", "企业成员不存在", 404)
-    if target.role is OrganizationRole.OWNER:
-        raise DomainError(
-            "OWNER_MANAGEMENT_DEFERRED", "所有者变更将在安全流程中处理", 403
-        )
-    return target
-
-
 @router.patch("/{organization_id}/members/{member_id}", response_model=MemberRead)
 async def update_member(
     organization_id: UUID,
@@ -331,9 +315,9 @@ async def update_member(
     current_user: CurrentUser,
     session: DbSession,
 ) -> MemberRead:
-    await require_organization_admin(session, organization_id, current_user.id)
-    target = await _manageable_member(session, organization_id, member_id)
-    target.role = payload.role
+    target = await change_member_role(
+        session, organization_id, current_user.id, member_id, payload.role
+    )
     user = await session.get(UserModel, member_id)
     await session.commit()
     return MemberRead(
@@ -352,8 +336,8 @@ async def remove_member(
     current_user: CurrentUser,
     session: DbSession,
 ) -> Response:
-    await require_organization_admin(session, organization_id, current_user.id)
-    target = await _manageable_member(session, organization_id, member_id)
-    await session.delete(target)
+    await remove_organization_member(
+        session, organization_id, current_user.id, member_id
+    )
     await session.commit()
     return Response(status_code=204)
