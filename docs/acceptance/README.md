@@ -52,3 +52,7 @@ M1-07 项目完整生命周期：IMPLEMENTED_LOCAL / PASSED_LOCAL。CRUD、归�
 ## M1-08 补充状态
 
 M1-08 审计、幂等与 Outbox：IMPLEMENTED_LOCAL / PASSED_LOCAL。强制幂等、并发重放、同键冲突、关键写审计/Outbox 同事务和回滚无半状态已通过真实 PostgreSQL 与 Demo 验收；外部签章仍阻塞。
+
+## M1-09 当前状态
+
+M1-09 租户纵深防御：IMPLEMENTED_LOCAL / PASSED_LOCAL。受限运行角色、7 张表 RLS、同连接 A/B/无租户矩阵、提交/回滚清理、全迁移升降级、真实 PostgreSQL 与 Demo 验收通过；外部签收仍受阻。

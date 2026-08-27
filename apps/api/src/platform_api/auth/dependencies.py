@@ -18,6 +18,7 @@ from platform_api.auth.verifier import (
     UnavailableTokenVerifier,
 )
 from platform_api.common.errors import DomainError
+from platform_api.common.tenancy import activate_actor_context
 from platform_api.db.models import UserModel
 from platform_api.db.session import get_session
 from platform_api.settings import get_settings
@@ -97,7 +98,9 @@ async def get_current_user(
 ) -> UserModel:
     if credentials is not None and credentials.scheme.lower() == "bearer":
         identity = await verifier.verify(credentials.credentials)
-        return await _synchronize_user(session, identity)
+        user = await _synchronize_user(session, identity)
+        await activate_actor_context(session, user.id)
+        return user
 
     settings = get_settings()
     session_id = request.cookies.get(settings.bff_cookie_name)
@@ -114,7 +117,9 @@ async def get_current_user(
         ):
             raise DomainError("CSRF_REJECTED", "请求来源或 CSRF 校验失败", 403)
     identity = await verifier.verify(browser_session.access_token)
-    return await _synchronize_user(session, identity)
+    user = await _synchronize_user(session, identity)
+    await activate_actor_context(session, user.id)
+    return user
 
 
 CurrentUser = Annotated[UserModel, Depends(get_current_user)]

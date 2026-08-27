@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -24,6 +24,7 @@ from platform_api.common.reliability import (
     record_audit,
     record_outbox,
 )
+from platform_api.common.tenancy import resolve_invite_tenant, set_tenant_context
 from platform_api.db.models import (
     OrganizationInviteModel,
     OrganizationMemberModel,
@@ -140,7 +141,8 @@ async def create_organization(
             content=decision.replay_body,
             headers={"Idempotent-Replayed": "true"},
         )
-    organization = OrganizationModel(name=payload.name.strip())
+    organization = OrganizationModel(id=uuid4(), name=payload.name.strip())
+    await set_tenant_context(session, organization.id, current_user.id)
     session.add(organization)
     await session.flush()
     session.add(
@@ -295,6 +297,7 @@ async def accept_invite(
     token: str, current_user: CurrentUser, session: DbSession
 ) -> MemberRead:
     token_hash = hashlib.sha256(token.encode()).digest()
+    await resolve_invite_tenant(session, token_hash, current_user.id)
     invite = await session.scalar(
         select(OrganizationInviteModel)
         .where(OrganizationInviteModel.token_hash == token_hash)

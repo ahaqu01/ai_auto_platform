@@ -1,26 +1,27 @@
 # Current Status
 
-> Owner：平台工程
+> Owner：平台后端
 > Updated：2026-08-27
-> Git baseline：M1-08 提交（标签 m1-08-audit-idempotency-outbox-implemented）
-> Database migration：20260827_06 (head)
-> Status：M1-08 IMPLEMENTED_LOCAL / PASSED_LOCAL / BLOCKED_EXTERNAL
+> Git baseline：M1-09 提交，标签 `m1-09-tenant-rls-implemented`
+> Database migration：`20260827_07` (head)
+> Status：M1-09 IMPLEMENTED_LOCAL / PASSED_LOCAL / BLOCKED_EXTERNAL
 
-## 当前结论
+## 当前事实
 
-- M1-08 已完成审计、强制幂等和 Transactional Outbox 数据及应用基线。
-- 企业/项目创建支持跨进程数据库幂等：重放返回原响应，同键异请求返回 409。
-- 企业创建、项目创建、项目状态变化和企业成员移除与审计/Outbox 同事务提交。
-- CI baseline、真实 PostgreSQL 和 Demo 验收通过；数据库迁移为 `20260827_06`。
+- M1-09 已落地应用 RBAC + PostgreSQL RLS 双层租户隔离。
+- API 认证事务切换到无登录、非超级用户、无 BYPASSRLS 的 `platform_runtime`；actor/organization context 均为 transaction-local。
+- organizations、成员、邀请、projects、项目成员、audit、outbox 共 7 张表启用 RLS。
+- 同连接 A/B/无租户矩阵、跨租户读写、commit/rollback 清理、全迁移升降级均通过。
+- PostgreSQL 全量 `56 passed`；本地 CI 与 Demo 通过；Demo migration 为 `20260827_07`。
 
 ## 状态边界
 
-本地与 Demo 证据完整；私有远端、PR、远端 CI 和外部 Staging 签章缺授权，因此不标记 ACCEPTED。Outbox 外部发布器不在本基线范围内。
+当前是本地与 Demo 证据。远程 CI、PR 和外部 Staging 签收缺少外部权限，因此不能标记 ACCEPTED。
 
 ## 权威执行顺序
 
-1. 执行 M1-09 租户纵深防御：RLS、连接池上下文清理、跨企业读写矩阵。
-2. 执行 M1-10 Web 企业/项目闭环。
-3. M1-09 完成前禁止进入资产/任务域。
+1. 执行 M1-10 Web 组织/项目闭环。
+2. 完成 M1 总体验收。
+3. M1-08/M1-09 的资产/任务域前置阻断已解除；总体验收后再进入资产/任务域。
 
-文档索引见 [文档治理入口](README.md)，验收证据见 [acceptance](acceptance/README.md)。
+文档入口见 [文档治理索引](README.md)，验证证据见 [acceptance](acceptance/README.md)。

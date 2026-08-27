@@ -15,6 +15,7 @@ services:
       POSTGRES_PASSWORD: demo-local-only
     volumes:
       - demo-postgres-data:/var/lib/postgresql/data
+      - ../postgres/01-runtime-role.sql:/docker-entrypoint-initdb.d/01-runtime-role.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
       interval: 5s

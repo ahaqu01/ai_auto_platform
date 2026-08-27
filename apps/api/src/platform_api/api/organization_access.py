@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from platform_api.common.errors import DomainError
+from platform_api.common.tenancy import set_tenant_context
 from platform_api.db.models import OrganizationMemberModel, OrganizationModel
 from platform_api.modules.organization.domain import OrganizationRole
 
@@ -11,6 +12,7 @@ from platform_api.modules.organization.domain import OrganizationRole
 async def require_organization_member(
     session: AsyncSession, organization_id: UUID, user_id: UUID
 ) -> OrganizationMemberModel:
+    await set_tenant_context(session, organization_id, user_id)
     membership = await session.scalar(
         select(OrganizationMemberModel).where(
             OrganizationMemberModel.organization_id == organization_id,
@@ -34,6 +36,7 @@ async def require_organization_admin(
 async def _lock_and_authorize(
     session: AsyncSession, organization_id: UUID, actor_id: UUID
 ) -> OrganizationMemberModel:
+    await set_tenant_context(session, organization_id, actor_id)
     organization = await session.scalar(
         select(OrganizationModel)
         .where(OrganizationModel.id == organization_id)
