@@ -8,5 +8,10 @@ export default createRouter({
       name: 'home',
       component: () => import('./views/HomeView.vue'),
     },
+    {
+      path: '/workspace',
+      name: 'workspace',
+      component: () => import('./views/WorkspaceView.vue'),
+    },
   ],
 })

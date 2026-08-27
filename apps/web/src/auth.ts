@@ -23,6 +23,15 @@ export async function loadSession(): Promise<void> {
   }
 }
 
+export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const headers = new Headers(init.headers)
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    headers.set('X-CSRF-Token', csrfToken.value)
+  }
+  return fetch(path, { ...init, headers, credentials: 'same-origin' })
+}
+
 export function login(returnTo = window.location.pathname): void {
   window.location.assign(`/auth/login?return_to=${encodeURIComponent(returnTo)}`)
 }

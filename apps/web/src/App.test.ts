@@ -1,5 +1,7 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('vue-router', async (importOriginal) => ({ ...(await importOriginal<typeof import('vue-router')>()), useRoute: () => ({ path: '/' }) }))
 
 import App from './App.vue'
 
@@ -9,6 +11,7 @@ describe('App', () => {
       global: {
         stubs: {
           RouterView: true,
+          RouterLink: { template: '<a><slot /></a>' },
         },
       },
     })
