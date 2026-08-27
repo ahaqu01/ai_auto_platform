@@ -96,6 +96,18 @@ class FakeTokenVerifier:
                 email="outsider@example.com",
                 display_name="Outsider",
             ),
+            "admin-token": IdentityClaims(
+                issuer="https://auth.example.com/realms/platform",
+                subject="admin-subject",
+                email="admin@example.com",
+                display_name="Admin",
+            ),
+            "member-token": IdentityClaims(
+                issuer="https://auth.example.com/realms/platform",
+                subject="member-subject",
+                email="member@example.com",
+                display_name="Member",
+            ),
         }
         try:
             return identities[token]

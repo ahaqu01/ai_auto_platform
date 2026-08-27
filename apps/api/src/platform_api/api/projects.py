@@ -7,6 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from platform_api.api.organization_access import (
+    require_organization_admin,
+    require_organization_member,
+)
 from platform_api.auth.dependencies import CurrentUser
 from platform_api.common.api_contract import (
     PROTECTED_ERROR_RESPONSES,
@@ -14,7 +18,7 @@ from platform_api.common.api_contract import (
     StrictOrmModel,
 )
 from platform_api.common.errors import DomainError
-from platform_api.db.models import OrganizationMemberModel, ProjectModel
+from platform_api.db.models import ProjectModel
 from platform_api.db.session import get_session
 from platform_api.modules.project.domain import ProjectStatus
 
@@ -44,19 +48,6 @@ class ProjectRead(StrictOrmModel):
     status: ProjectStatus
 
 
-async def require_member(
-    session: AsyncSession, organization_id: UUID, user_id: UUID
-) -> None:
-    membership = await session.scalar(
-        select(OrganizationMemberModel).where(
-            OrganizationMemberModel.organization_id == organization_id,
-            OrganizationMemberModel.user_id == user_id,
-        )
-    )
-    if membership is None:
-        raise DomainError("ORGANIZATION_NOT_FOUND", "企业不存在或无权访问", 404)
-
-
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 async def create_project(
     organization_id: UUID,
@@ -64,7 +55,7 @@ async def create_project(
     current_user: CurrentUser,
     session: DbSession,
 ) -> ProjectModel:
-    await require_member(session, organization_id, current_user.id)
+    await require_organization_admin(session, organization_id, current_user.id)
     project = ProjectModel(
         organization_id=organization_id, code=payload.code, name=payload.name.strip()
     )
@@ -82,7 +73,7 @@ async def create_project(
 async def list_projects(
     organization_id: UUID, current_user: CurrentUser, session: DbSession
 ) -> list[ProjectModel]:
-    await require_member(session, organization_id, current_user.id)
+    await require_organization_member(session, organization_id, current_user.id)
     result = await session.scalars(
         select(ProjectModel)
         .where(ProjectModel.organization_id == organization_id)
