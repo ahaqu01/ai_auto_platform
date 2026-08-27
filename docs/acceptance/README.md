@@ -43,3 +43,7 @@ M1-05 企业成员邀请与 RBAC：IMPLEMENTED_LOCAL / PASSED_LOCAL。邀请生�
 ## M1-06 补充状态
 
 M1-06 最后 Owner 并发保护：IMPLEMENTED_LOCAL / PASSED_LOCAL。组织行锁、锁后复核、Owner 授予权限和并发降级/移除不变量已通过真实 PostgreSQL 与 Demo 验收；外部签章仍阻塞。
+
+## M1-07 补充状态
+
+M1-07 项目完整生命周期：IMPLEMENTED_LOCAL / PASSED_LOCAL。CRUD、归档恢复、项目成员、opaque cursor、软删除与 If-Match 并发保护已通过真实 PostgreSQL 和 Demo 验收；外部签章仍阻塞。

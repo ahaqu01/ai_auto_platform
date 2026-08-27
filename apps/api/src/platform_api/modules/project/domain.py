@@ -10,6 +10,12 @@ class ProjectStatus(StrEnum):
     ARCHIVED = "ARCHIVED"
 
 
+class ProjectRole(StrEnum):
+    ADMIN = "ADMIN"
+    ENGINEER = "ENGINEER"
+    VIEWER = "VIEWER"
+
+
 @dataclass(slots=True)
 class Project:
     id: UUID
