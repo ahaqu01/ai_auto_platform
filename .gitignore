@@ -15,5 +15,6 @@ coverage/
 data/
 .demo-cache/
 .coverage
+.security-bin/
 apps/web/test-results/
 apps/web/playwright-report/

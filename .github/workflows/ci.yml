@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/agent/go.mod
+          go-version: "1.25.13"
           cache: true
           cache-dependency-path: apps/agent/go.mod
       - run: python -m venv .venv
@@ -71,7 +71,7 @@ jobs:
           CREATE ROLE platform_test LOGIN PASSWORD 'ci-test-only' CREATEDB NOSUPERUSER;
           CREATE DATABASE platform_test OWNER platform_test;
           SQL
-      - name: PostgreSQL integration and disposable downgrade
+      - name: PostgreSQL integration and M1 coverage gates
         env:
           APP_ENV: test
           TEST_DATABASE_CONFIRM: M0R05R01_TEST_DATABASE_ONLY
@@ -79,4 +79,34 @@ jobs:
           TEST_DATABASE_ADMIN_URL: postgresql+psycopg://postgres:ci-admin-only@127.0.0.1:5432/postgres
           TEST_DATABASE_ALLOW_DOWNGRADE: M0R05R01_DISPOSABLE_DATABASE_DOWNGRADE
           TEST_DATABASE_ALLOW_DESTROY: M0R05R04_DESTROY_EPHEMERAL_DATABASE
-        run: .venv/bin/pytest apps/api/tests/postgresql -q
+        run: |
+          mkdir -p coverage
+          .venv/bin/pytest apps/api/tests --cov=platform_api --cov-branch \
+            --cov-report=json:coverage/m1.json --cov-report=term:skip-covered -q
+          .venv/bin/python scripts/check_m1_coverage.py coverage/m1.json
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.13"
+          cache: true
+          cache-dependency-path: apps/agent/go.mod
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e 'apps/api[dev]' pip-audit==2.9.0 bandit==1.8.6
+      - run: npm ci --prefix apps/web
+      - run: mkdir -p .security-bin && GOBIN="$PWD/.security-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      - run: bash scripts/security_scan.sh
