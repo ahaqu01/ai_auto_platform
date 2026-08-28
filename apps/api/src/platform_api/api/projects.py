@@ -107,6 +107,44 @@ class ProjectMemberRead(StrictOrmModel):
     role: ProjectRole
 
 
+def _record_project_member_change(
+    session: AsyncSession,
+    request: Request,
+    *,
+    actor_id: UUID,
+    project: ProjectModel,
+    member_id: UUID,
+    action: str,
+    event_type: str,
+    role: ProjectRole | None = None,
+) -> None:
+    trace_id = getattr(request.state, "trace_id", None)
+    payload = {"memberId": str(member_id)}
+    if role is not None:
+        payload["role"] = str(role)
+    record_audit(
+        session,
+        actor_id=actor_id,
+        action=action,
+        resource_type="project_member",
+        resource_id=member_id,
+        organization_id=project.organization_id,
+        project_id=project.id,
+        trace_id=trace_id,
+        detail=payload,
+    )
+    record_outbox(
+        session,
+        organization_id=project.organization_id,
+        aggregate_type="project",
+        aggregate_id=project.id,
+        event_type=event_type,
+        aggregate_version=project.version,
+        trace_id=trace_id,
+        payload=payload,
+    )
+
+
 def _etag(version: int) -> str:
     return f'"{version}"'
 
@@ -500,8 +538,11 @@ async def add_project_member(
     payload: ProjectMemberCreate,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> ProjectMemberModel:
-    await _require_project_admin(session, organization_id, project_id, current_user.id)
+    project = await _require_project_admin(
+        session, organization_id, project_id, current_user.id
+    )
     organization_member = await session.get(
         OrganizationMemberModel, (organization_id, payload.member_id)
     )
@@ -514,6 +555,16 @@ async def add_project_member(
         role=payload.role,
     )
     session.add(member)
+    _record_project_member_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        project=project,
+        member_id=payload.member_id,
+        action="project.member.add",
+        event_type="ProjectMemberAdded.v1",
+        role=payload.role,
+    )
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -531,12 +582,25 @@ async def update_project_member(
     payload: ProjectMemberUpdate,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> ProjectMemberModel:
-    await _require_project_admin(session, organization_id, project_id, current_user.id)
+    project = await _require_project_admin(
+        session, organization_id, project_id, current_user.id
+    )
     member = await session.get(ProjectMemberModel, (project_id, member_id))
     if member is None:
         raise DomainError("PROJECT_MEMBER_NOT_FOUND", "项目成员不存在", 404)
     member.role = payload.role
+    _record_project_member_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        project=project,
+        member_id=member_id,
+        action="project.member.role.update",
+        event_type="ProjectMemberRoleChanged.v1",
+        role=payload.role,
+    )
     await session.commit()
     await session.refresh(member)
     return member
@@ -549,11 +613,23 @@ async def remove_project_member(
     member_id: UUID,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> Response:
-    await _require_project_admin(session, organization_id, project_id, current_user.id)
+    project = await _require_project_admin(
+        session, organization_id, project_id, current_user.id
+    )
     member = await session.get(ProjectMemberModel, (project_id, member_id))
     if member is None:
         raise DomainError("PROJECT_MEMBER_NOT_FOUND", "项目成员不存在", 404)
+    _record_project_member_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        project=project,
+        member_id=member_id,
+        action="project.member.remove",
+        event_type="ProjectMemberRemoved.v1",
+    )
     await session.delete(member)
     await session.commit()
     return Response(status_code=204)

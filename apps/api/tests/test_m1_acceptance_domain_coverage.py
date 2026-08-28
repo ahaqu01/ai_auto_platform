@@ -66,6 +66,10 @@ def current_user(email="user@example.com"):
     return SimpleNamespace(id=uuid4(), email=email, display_name="User")
 
 
+def request():
+    return SimpleNamespace(state=SimpleNamespace(trace_id="test-trace"))
+
+
 def test_invite_models_normalize_and_reject_invalid_addresses() -> None:
     payload = organizations_api.InviteCreate(email=" User@Example.COM ", role="MEMBER")
     assert payload.email == "user@example.com"
@@ -85,14 +89,22 @@ async def test_create_invite_conflict_reissue_and_database_race(monkeypatch) -> 
     payload = organizations_api.InviteCreate(email=actor.email, role="MEMBER")
     with pytest.raises(DomainError) as existing_member:
         await organizations_api.create_invite(
-            organization_id, payload, actor, FakeSession(scalar_values=[object()])
+            organization_id,
+            payload,
+            actor,
+            FakeSession(scalar_values=[object()]),
+            request(),
         )
     assert existing_member.value.code == "MEMBER_ALREADY_EXISTS"
 
     active = invite_record(organization_id=organization_id)
     with pytest.raises(DomainError) as duplicate:
         await organizations_api.create_invite(
-            organization_id, payload, actor, FakeSession(scalar_values=[None, active])
+            organization_id,
+            payload,
+            actor,
+            FakeSession(scalar_values=[None, active]),
+            request(),
         )
     assert duplicate.value.code == "INVITE_ALREADY_EXISTS"
 
@@ -102,7 +114,11 @@ async def test_create_invite_conflict_reissue_and_database_race(monkeypatch) -> 
         - organizations_api.timedelta(seconds=1),
     )
     created = await organizations_api.create_invite(
-        organization_id, payload, actor, FakeSession(scalar_values=[None, expired])
+        organization_id,
+        payload,
+        actor,
+        FakeSession(scalar_values=[None, expired]),
+        request(),
     )
     assert created.email == actor.email and created.token
 
@@ -122,7 +138,9 @@ async def test_create_invite_conflict_reissue_and_database_race(monkeypatch) -> 
 
     racing.commit = conflict
     with pytest.raises(DomainError) as race:
-        await organizations_api.create_invite(organization_id, payload, actor, racing)
+        await organizations_api.create_invite(
+            organization_id, payload, actor, racing, request()
+        )
     assert race.value.code == "INVITE_CONFLICT" and racing.rollbacks == 1
 
 
@@ -134,7 +152,11 @@ async def test_revoke_and_accept_invite_guard_matrix(monkeypatch) -> None:
     actor = current_user()
     with pytest.raises(DomainError) as missing:
         await organizations_api.revoke_invite(
-            organization_id, invite_id, actor, FakeSession(scalar_values=[None])
+            organization_id,
+            invite_id,
+            actor,
+            FakeSession(scalar_values=[None]),
+            request(),
         )
     assert missing.value.code == "INVITE_NOT_FOUND"
     accepted = invite_record(
@@ -142,11 +164,19 @@ async def test_revoke_and_accept_invite_guard_matrix(monkeypatch) -> None:
     )
     with pytest.raises(DomainError) as already:
         await organizations_api.revoke_invite(
-            organization_id, invite_id, actor, FakeSession(scalar_values=[accepted])
+            organization_id,
+            invite_id,
+            actor,
+            FakeSession(scalar_values=[accepted]),
+            request(),
         )
     assert already.value.code == "INVITE_ALREADY_ACCEPTED"
     response = await organizations_api.revoke_invite(
-        organization_id, invite_id, actor, FakeSession(scalar_values=[invite_record()])
+        organization_id,
+        invite_id,
+        actor,
+        FakeSession(scalar_values=[invite_record()]),
+        request(),
     )
     assert response.status_code == 204
 
@@ -176,13 +206,13 @@ async def test_revoke_and_accept_invite_guard_matrix(monkeypatch) -> None:
     for invite, code in cases:
         with pytest.raises(DomainError) as error:
             await organizations_api.accept_invite(
-                "token", actor, FakeSession(scalar_values=[invite])
+                "token", actor, FakeSession(scalar_values=[invite]), request()
             )
         assert error.value.code == code
 
     valid = invite_record(email=actor.email)
     result = await organizations_api.accept_invite(
-        "token", actor, FakeSession(scalar_values=[valid])
+        "token", actor, FakeSession(scalar_values=[valid]), request()
     )
     assert result.email == actor.email and valid.accepted_at is not None
     racing = FakeSession(scalar_values=[invite_record(email=actor.email)])
@@ -192,7 +222,7 @@ async def test_revoke_and_accept_invite_guard_matrix(monkeypatch) -> None:
 
     racing.commit = conflict
     with pytest.raises(DomainError) as race:
-        await organizations_api.accept_invite("token", actor, racing)
+        await organizations_api.accept_invite("token", actor, racing, request())
     assert race.value.code == "MEMBER_ALREADY_EXISTS" and racing.rollbacks == 1
 
 
@@ -328,13 +358,20 @@ async def test_project_update_field_matrix_and_status_events(monkeypatch) -> Non
 
 @pytest.mark.asyncio
 async def test_project_member_missing_and_conflict_guards(monkeypatch) -> None:
-    monkeypatch.setattr(projects_api, "_require_project_admin", AsyncMock())
+    monkeypatch.setattr(
+        projects_api, "_require_project_admin", AsyncMock(return_value=project_record())
+    )
     organization_id, project_id, member_id = uuid4(), uuid4(), uuid4()
     actor = current_user()
     create = projects_api.ProjectMemberCreate(member_id=member_id, role="VIEWER")
     with pytest.raises(DomainError) as outsider:
         await projects_api.add_project_member(
-            organization_id, project_id, create, actor, FakeSession(get_values=[None])
+            organization_id,
+            project_id,
+            create,
+            actor,
+            FakeSession(get_values=[None]),
+            request(),
         )
     assert outsider.value.code == "ORGANIZATION_MEMBER_REQUIRED"
     session = FakeSession(get_values=[object()])
@@ -345,7 +382,7 @@ async def test_project_member_missing_and_conflict_guards(monkeypatch) -> None:
     session.commit = conflict
     with pytest.raises(DomainError) as duplicate:
         await projects_api.add_project_member(
-            organization_id, project_id, create, actor, session
+            organization_id, project_id, create, actor, session, request()
         )
     assert duplicate.value.code == "PROJECT_MEMBER_EXISTS"
     update = projects_api.ProjectMemberUpdate(role="ADMIN")
@@ -357,6 +394,7 @@ async def test_project_member_missing_and_conflict_guards(monkeypatch) -> None:
             update,
             actor,
             FakeSession(get_values=[None]),
+            request(),
         )
     assert missing_update.value.code == "PROJECT_MEMBER_NOT_FOUND"
     with pytest.raises(DomainError) as missing_remove:
@@ -366,5 +404,6 @@ async def test_project_member_missing_and_conflict_guards(monkeypatch) -> None:
             member_id,
             actor,
             FakeSession(get_values=[None]),
+            request(),
         )
     assert missing_remove.value.code == "PROJECT_MEMBER_NOT_FOUND"

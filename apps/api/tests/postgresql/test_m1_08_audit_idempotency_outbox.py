@@ -183,6 +183,42 @@ async def test_archive_and_member_remove_write_audit_and_outbox(postgresql_api) 
         headers=bearer("member-token"),
     )
     member_id = accepted.json()["user_id"]
+    member_endpoint = (
+        f"/api/v1/organizations/{organization_id}/projects/{project_id}/members"
+    )
+    added = await client.post(
+        member_endpoint,
+        headers=bearer("owner-token"),
+        json={"member_id": member_id, "role": "VIEWER"},
+    )
+    changed = await client.patch(
+        f"{member_endpoint}/{member_id}",
+        headers=bearer("owner-token"),
+        json={"role": "EDITOR"},
+    )
+    removed_from_project = await client.delete(
+        f"{member_endpoint}/{member_id}", headers=bearer("owner-token")
+    )
+    changed_in_organization = await client.patch(
+        f"/api/v1/organizations/{organization_id}/members/{member_id}",
+        headers=bearer("owner-token"),
+        json={"role": "ADMIN"},
+    )
+    revoked_invite = await client.post(
+        f"/api/v1/organizations/{organization_id}/invites",
+        headers=bearer("owner-token"),
+        json={"email": "outsider@example.com", "role": "MEMBER"},
+    )
+    revoked = await client.delete(
+        f"/api/v1/organizations/{organization_id}/invites/"
+        f"{revoked_invite.json()['id']}",
+        headers=bearer("owner-token"),
+    )
+    assert added.status_code == 201
+    assert changed.status_code == 200
+    assert removed_from_project.status_code == 204
+    assert changed_in_organization.status_code == 200
+    assert revoked.status_code == 204
     archived = await client.post(
         f"/api/v1/organizations/{organization_id}/projects/{project_id}:archive",
         headers={**bearer("owner-token"), "If-Match": '"1"'},
@@ -199,8 +235,28 @@ async def test_archive_and_member_remove_write_audit_and_outbox(postgresql_api) 
         event_types = set(await session.scalars(select(OutboxEventModel.event_type)))
         details = list(await session.scalars(select(AuditEventModel.detail)))
         payloads = list(await session.scalars(select(OutboxEventModel.payload)))
-    assert {"project.archive", "organization.member.remove"} <= actions
-    assert {"ProjectArchived.v1", "OrganizationMemberRemoved.v1"} <= event_types
+    assert {
+        "organization.invite.create",
+        "organization.invite.accept",
+        "organization.invite.revoke",
+        "organization.member.role.update",
+        "organization.member.remove",
+        "project.member.add",
+        "project.member.role.update",
+        "project.member.remove",
+        "project.archive",
+    } <= actions
+    assert {
+        "OrganizationInviteCreated.v1",
+        "OrganizationInviteAccepted.v1",
+        "OrganizationInviteRevoked.v1",
+        "OrganizationMemberRoleChanged.v1",
+        "OrganizationMemberRemoved.v1",
+        "ProjectMemberAdded.v1",
+        "ProjectMemberRoleChanged.v1",
+        "ProjectMemberRemoved.v1",
+        "ProjectArchived.v1",
+    } <= event_types
     serialized = str(details + payloads).casefold()
     assert (
         "token" not in serialized

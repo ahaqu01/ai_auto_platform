@@ -120,6 +120,41 @@ def _invite_read(invite: OrganizationInviteModel, token: str | None = None):
     return InviteCreated(**values, token=token) if token else InviteRead(**values)
 
 
+def _record_organization_change(
+    session: AsyncSession,
+    request: Request,
+    *,
+    actor_id: UUID,
+    organization_id: UUID,
+    action: str,
+    resource_type: str,
+    resource_id: UUID,
+    event_type: str,
+    payload: dict[str, str],
+) -> None:
+    trace_id = getattr(request.state, "trace_id", None)
+    record_audit(
+        session,
+        actor_id=actor_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        organization_id=organization_id,
+        trace_id=trace_id,
+        detail=payload,
+    )
+    record_outbox(
+        session,
+        organization_id=organization_id,
+        aggregate_type="organization",
+        aggregate_id=organization_id,
+        event_type=event_type,
+        aggregate_version=1,
+        trace_id=trace_id,
+        payload=payload,
+    )
+
+
 @router.post("", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
 async def create_organization(
     payload: OrganizationCreate,
@@ -208,6 +243,7 @@ async def create_invite(
     payload: InviteCreate,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> InviteCreated:
     await require_organization_admin(session, organization_id, current_user.id)
     email = str(payload.email).strip().casefold()
@@ -247,6 +283,18 @@ async def create_invite(
     invite.accepted_at = None
     invite.revoked_at = None
     session.add(invite)
+    await session.flush()
+    _record_organization_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        organization_id=organization_id,
+        action="organization.invite.create",
+        resource_type="organization_invite",
+        resource_id=invite.id,
+        event_type="OrganizationInviteCreated.v1",
+        payload={"inviteId": str(invite.id), "role": str(invite.role)},
+    )
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -275,6 +323,7 @@ async def revoke_invite(
     invite_id: UUID,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> Response:
     await require_organization_admin(session, organization_id, current_user.id)
     invite = await session.scalar(
@@ -288,13 +337,27 @@ async def revoke_invite(
     if invite.accepted_at:
         raise DomainError("INVITE_ALREADY_ACCEPTED", "邀请已接受", 409)
     invite.revoked_at = datetime.now(UTC)
+    _record_organization_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        organization_id=organization_id,
+        action="organization.invite.revoke",
+        resource_type="organization_invite",
+        resource_id=invite.id,
+        event_type="OrganizationInviteRevoked.v1",
+        payload={"inviteId": str(invite.id)},
+    )
     await session.commit()
     return Response(status_code=204)
 
 
 @invite_router.post("/{token}/accept", response_model=MemberRead, status_code=201)
 async def accept_invite(
-    token: str, current_user: CurrentUser, session: DbSession
+    token: str,
+    current_user: CurrentUser,
+    session: DbSession,
+    request: Request,
 ) -> MemberRead:
     token_hash = hashlib.sha256(token.encode()).digest()
     await resolve_invite_tenant(session, token_hash, current_user.id)
@@ -321,6 +384,17 @@ async def accept_invite(
     )
     session.add(membership)
     invite.accepted_at = now
+    _record_organization_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        organization_id=invite.organization_id,
+        action="organization.invite.accept",
+        resource_type="organization_invite",
+        resource_id=invite.id,
+        event_type="OrganizationInviteAccepted.v1",
+        payload={"inviteId": str(invite.id), "memberId": str(current_user.id)},
+    )
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -367,11 +441,23 @@ async def update_member(
     payload: MemberRoleUpdate,
     current_user: CurrentUser,
     session: DbSession,
+    request: Request,
 ) -> MemberRead:
     target = await change_member_role(
         session, organization_id, current_user.id, member_id, payload.role
     )
     user = await session.get(UserModel, member_id)
+    _record_organization_change(
+        session,
+        request,
+        actor_id=current_user.id,
+        organization_id=organization_id,
+        action="organization.member.role.update",
+        resource_type="organization_member",
+        resource_id=member_id,
+        event_type="OrganizationMemberRoleChanged.v1",
+        payload={"memberId": str(member_id), "role": str(target.role)},
+    )
     await session.commit()
     return MemberRead(
         organization_id=organization_id,
