@@ -17,6 +17,9 @@ def deployment_settings(**overrides: str) -> dict[str, str]:
         "temporal_address": "temporal.internal:7233",
         "keycloak_issuer": "https://auth.example.com/realms/platform",
         "oidc_audience": "platform-api",
+        "bff_client_secret": "deployment-bff-secret",
+        "bff_public_origin": "https://platform.example.com",
+        "bff_callback_url": "https://platform.example.com/auth/callback",
         "oss_public_endpoint": "https://objects.example.com",
         "oss_internal_endpoint": "http://minio.internal:9000",
         "oss_bucket": "platform-assets",
@@ -54,6 +57,8 @@ def test_deployment_environment_requires_explicit_external_dependencies(
         ("temporal_address", "127.0.0.1:7233"),
         ("keycloak_issuer", "http://localhost:8081/realms/platform"),
         ("oss_public_endpoint", "http://127.0.0.1:9000"),
+        ("bff_public_origin", "http://localhost:8080"),
+        ("bff_callback_url", "http://localhost:8080/auth/callback"),
     ],
 )
 def test_production_rejects_local_or_insecure_service_configuration(
@@ -78,6 +83,30 @@ def test_production_rejects_local_default_database_credentials() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["bff_client_secret", "bff_public_origin", "bff_callback_url"],
+)
+def test_deployment_requires_explicit_bff_configuration(field: str) -> None:
+    with pytest.raises(RuntimeError, match=field):
+        Settings(**deployment_settings(**{field: ""}), _env_file=None)
+
+
+@pytest.mark.parametrize(
+    "callback_url",
+    [
+        "https://other.example.com/auth/callback",
+        "https://platform.example.com/wrong/callback",
+        "https://platform.example.com/auth/callback?code=leak",
+    ],
+)
+def test_deployment_rejects_invalid_bff_callback(callback_url: str) -> None:
+    with pytest.raises(RuntimeError, match="bff_callback_url"):
+        Settings(
+            **deployment_settings(bff_callback_url=callback_url), _env_file=None
+        )
+
+
 def test_environment_example_matches_runtime_configuration_names() -> None:
     names = {
         line.split("=", 1)[0]
@@ -95,6 +124,10 @@ def test_environment_example_matches_runtime_configuration_names() -> None:
         "TEMPORAL_NAMESPACE",
         "KEYCLOAK_ISSUER",
         "OIDC_AUDIENCE",
+        "BFF_CLIENT_ID",
+        "BFF_CLIENT_SECRET",
+        "BFF_PUBLIC_ORIGIN",
+        "BFF_CALLBACK_URL",
         "OSS_PUBLIC_ENDPOINT",
         "OSS_INTERNAL_ENDPOINT",
         "OSS_BUCKET",

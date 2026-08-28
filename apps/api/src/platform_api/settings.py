@@ -162,6 +162,25 @@ def _valid_endpoint(value: str, *, allowed_schemes: set[str]) -> bool:
         and not parsed.fragment
     )
 
+def _valid_bff_endpoints(public_origin: str, callback_url: str) -> bool:
+    origin = _parse_url(public_origin)
+    callback = _parse_url(callback_url)
+    return bool(
+        origin
+        and callback
+        and _valid_endpoint(public_origin, allowed_schemes={"https"})
+        and callback.scheme.lower() == origin.scheme.lower()
+        and callback.hostname == origin.hostname
+        and callback.port == origin.port
+        and callback.username is None
+        and callback.password is None
+        and callback.path == "/auth/callback"
+        and not callback.params
+        and not callback.query
+        and not callback.fragment
+    )
+
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -207,6 +226,9 @@ class Settings(BaseSettings):
             "keycloak_issuer": self.keycloak_issuer,
             "oidc_audience": self.oidc_audience,
             "oss_public_endpoint": self.oss_public_endpoint,
+            "bff_client_secret": self.bff_client_secret,
+            "bff_public_origin": self.bff_public_origin,
+            "bff_callback_url": self.bff_callback_url,
             "oss_internal_endpoint": self.oss_internal_endpoint,
             "oss_bucket": self.oss_bucket,
         }
@@ -220,6 +242,8 @@ class Settings(BaseSettings):
             "temporal_address": self.temporal_address,
             "keycloak_issuer": self.keycloak_issuer,
             "oss_public_endpoint": self.oss_public_endpoint,
+            "bff_public_origin": self.bff_public_origin,
+            "bff_callback_url": self.bff_callback_url,
             "oss_internal_endpoint": self.oss_internal_endpoint,
         }
         invalid.update(
@@ -231,6 +255,8 @@ class Settings(BaseSettings):
         public_fields = {
             "keycloak_issuer": self.keycloak_issuer,
             "oss_public_endpoint": self.oss_public_endpoint,
+            "bff_public_origin": self.bff_public_origin,
+            "bff_callback_url": self.bff_callback_url,
         }
         invalid.update(
             name
@@ -246,6 +272,12 @@ class Settings(BaseSettings):
             ),
             "keycloak_issuer": bool(
                 self.keycloak_issuer and _valid_keycloak_issuer(self.keycloak_issuer)
+            ),
+            "bff_public_origin": _valid_bff_endpoints(
+                self.bff_public_origin, self.bff_callback_url
+            ),
+            "bff_callback_url": _valid_bff_endpoints(
+                self.bff_public_origin, self.bff_callback_url
             ),
             "oss_public_endpoint": bool(
                 self.oss_public_endpoint
