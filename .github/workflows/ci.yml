@@ -70,6 +70,9 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           CREATE ROLE platform_test LOGIN PASSWORD 'ci-test-only' CREATEDB NOSUPERUSER;
           CREATE DATABASE platform_test OWNER platform_test;
+          CREATE ROLE platform_runtime
+            NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+          GRANT platform_runtime TO platform_test;
           SQL
       - name: PostgreSQL integration and M1 coverage gates
         env:
