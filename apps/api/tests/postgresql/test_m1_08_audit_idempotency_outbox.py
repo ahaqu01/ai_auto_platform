@@ -194,7 +194,7 @@ async def test_archive_and_member_remove_write_audit_and_outbox(postgresql_api) 
     changed = await client.patch(
         f"{member_endpoint}/{member_id}",
         headers=bearer("owner-token"),
-        json={"role": "EDITOR"},
+        json={"role": "ENGINEER"},
     )
     removed_from_project = await client.delete(
         f"{member_endpoint}/{member_id}", headers=bearer("owner-token")
