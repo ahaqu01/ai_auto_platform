@@ -53,7 +53,14 @@ async def test_cookie_authenticates_api_and_write_requires_origin_csrf(
 
     async def override_session():
         async with factory() as session:
-            yield session
+            try:
+                yield session
+                if session.in_transaction():
+                    await session.commit()
+            except BaseException:
+                if session.in_transaction():
+                    await session.rollback()
+                raise
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session

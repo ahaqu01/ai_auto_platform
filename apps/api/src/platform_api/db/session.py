@@ -10,4 +10,11 @@ session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:
-        yield session
+        try:
+            yield session
+            if session.in_transaction():
+                await session.commit()
+        except BaseException:
+            if session.in_transaction():
+                await session.rollback()
+            raise

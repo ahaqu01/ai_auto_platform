@@ -280,7 +280,14 @@ async def postgresql_api(
 ) -> AsyncIterator[PostgresqlApi]:
     async def override_session() -> AsyncIterator[AsyncSession]:
         async with postgresql_database.session_factory() as session:
-            yield session
+            try:
+                yield session
+                if session.in_transaction():
+                    await session.commit()
+            except BaseException:
+                if session.in_transaction():
+                    await session.rollback()
+                raise
 
     app = create_app()
     app.dependency_overrides[get_session] = override_session

@@ -56,7 +56,9 @@ async def test_same_email_for_different_subjects_creates_distinct_users(
 
     async def synchronize(identity: IdentityClaims):
         async with postgresql_database.session_factory() as session:
-            return await _synchronize_user(session, identity)
+            user = await _synchronize_user(session, identity)
+            await session.commit()
+            return user
 
     users = await asyncio.gather(*(synchronize(identity) for identity in identities))
 
@@ -82,7 +84,9 @@ async def test_twenty_concurrent_first_logins_create_one_identity(
 
     async def synchronize():
         async with postgresql_database.session_factory() as session:
-            return await _synchronize_user(session, identity)
+            user = await _synchronize_user(session, identity)
+            await session.commit()
+            return user
 
     users = await asyncio.gather(*(synchronize() for _ in range(20)))
 
@@ -124,12 +128,36 @@ async def test_existing_identity_updates_only_non_empty_profile_fields(
     async with postgresql_database.session_factory() as session:
         created = await _synchronize_user(session, initial)
         created_id = created.id
+        await session.commit()
     async with postgresql_database.session_factory() as session:
         changed = await _synchronize_user(session, updated)
+        await session.commit()
     async with postgresql_database.session_factory() as session:
         unchanged = await _synchronize_user(session, missing)
+        await session.commit()
 
     assert changed.id == created_id
     assert unchanged.id == created_id
     assert unchanged.email == "after@example.com"
     assert unchanged.display_name == "After"
+
+
+async def test_identity_sync_participates_in_caller_transaction(
+    postgresql_database,
+) -> None:
+    identity = IdentityClaims(
+        issuer="https://auth.example.com/realms/platform",
+        subject="rolled-back-identity",
+        email="rollback@example.com",
+        display_name="Rollback User",
+    )
+
+    async with postgresql_database.session_factory() as session:
+        created = await _synchronize_user(session, identity)
+        created_id = created.id
+        await session.rollback()
+
+    async with postgresql_database.session_factory() as session:
+        persisted = await session.get(UserModel, created_id)
+
+    assert persisted is None

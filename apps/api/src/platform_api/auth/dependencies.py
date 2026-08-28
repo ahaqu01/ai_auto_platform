@@ -82,9 +82,7 @@ async def _synchronize_user(
     try:
         result = await session.execute(statement)
         user = result.scalar_one()
-        await session.commit()
     except IntegrityError as exc:
-        await session.rollback()
         raise DomainError("IDENTITY_CONFLICT", "身份同步冲突", 409) from exc
     return user
 
