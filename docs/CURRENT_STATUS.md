@@ -4,7 +4,7 @@
 > Updated：2026-09-01
 > Git baseline：M1 最终复验提交 `433a1ba`
 > Database migration：`20260827_07` (head)
-> Status：M1 ACCEPTED / M2 ENTRY GATE OPEN
+> Status：M1 ACCEPTED / M2 STARTED
 
 ## 当前事实
 
@@ -33,3 +33,9 @@ M1 最终复验结论为 `ACCEPTED`，M2 进入门禁开放。发布流程仍须
 M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 → Multipart → 完成校验 → 下载授权 → 清理/对账 → 前端上传”推进。当前仅开放并启动 M2，不表示任何 M2 工作包已验收。
 
 详细证据见 [M1 最终复验记录](acceptance/M1-final-reacceptance-2026-09-01.md)，归档语义见 [ADR-0005](adr/0005-archived-project-mutation-policy.md)。
+
+## M2 当前状态
+
+M2-00 启动门禁已通过，独立工作分支为 `codex/m2-assets-storage`。当前允许执行 M2-01“对象 Key 与威胁模型”；M2-02 至 M2-08 均未开始，M2 尚未 ACCEPTED。
+
+执行计划见 [M2 资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)，启动证据见 [M2-00 验收记录](acceptance/M2-00-kickoff-gate.md)。
