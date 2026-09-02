@@ -38,7 +38,7 @@ M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 �
 
 M2-00 启动门禁和 M2-01 设计门禁已通过，独立工作分支为 `codex/m2-assets-storage`。M2-01 已固定双状态机、opaque 对象 Key、完整 SHA-256、授权/归档、威胁模型和失败恢复边界。文档/CI 门禁通过后允许进入 M2-02；M2-02 至 M2-08 尚未实现，M2 尚未 ACCEPTED。
 M2-01 设计提交为 `e69b249`，GitHub Actions run `33580267593` 为 success。
-M2-02 已实现对象存储端口和 MinIO/OSS 适配契约，等待本地回归与远程 CI。真实网络 gateway 仍受 M0R-04R-05 阻断，不得宣称 OSS/MinIO 数据面已通过。
+M2-02 对象存储端口和 MinIO/OSS 适配契约已通过验收；实现提交 `d4e0123`，GitHub Actions run `33581470484` 为 success。允许进入 M2-03。真实网络 gateway 仍受 M0R-04R-05 阻断，不得宣称 OSS/MinIO 数据面已通过。
 
 执行计划见 [M2 资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)，启动证据见 [M2-00 验收记录](acceptance/M2-00-kickoff-gate.md)。
 

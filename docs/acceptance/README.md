@@ -71,5 +71,5 @@ M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2
 |---|---|---|
 | M2-00 | ACCEPTED | M1 验收基线、独立分支和实施计划门禁通过 |
 | M2-01 | ACCEPTED | 双状态机、opaque Key、完整性、威胁模型和恢复矩阵设计门禁通过 |
-| M2-02 | PENDING_CI | 对象存储端口与 MinIO/OSS 适配契约已实现，等待 CI |
+| M2-02 | ACCEPTED | 对象存储端口、MinIO/OSS 适配契约及 CI 通过；网络 gateway 继续受安全门禁约束 |
 | M2-03～08 | NOT STARTED | 必须按计划顺序实施和逐项验收 |
