@@ -1,7 +1,7 @@
 # Acceptance Status Index
 
 > Owner：QA 负责人
-> Updated：2026-08-27
+> Updated：2026-09-02
 > Status：EVIDENCE INDEX
 > Authoritative current status：[../CURRENT_STATUS.md](../CURRENT_STATUS.md)
 
@@ -63,4 +63,12 @@ M1-10 Web 组织/项目闭环：IMPLEMENTED_LOCAL / PASSED_LOCAL。BFF 登录入
 
 ## M1 总体验收状态
 
-M1 总体验收：NOT ACCEPTED / TESTS_FAILED / BLOCKED_EXTERNAL。API/PostgreSQL 193 项、Web 9 项、Keycloak service token、RLS/审计及 Demo 通过；覆盖率门槛、真实用户浏览器 E2E、Python/Go SCA/SAST、远程 CI/外部 Staging 矩阵和四方签字未通过或阻塞。详见根目录 `M1总体验收报告.md`。
+M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2E、安全扫描和四方确认均已完成；不可变标签 `m1-accepted` 指向 `c81a005`。
+
+## M2 当前状态
+
+| Slice | 当前状态 | 说明 |
+|---|---|---|
+| M2-00 | ACCEPTED | M1 验收基线、独立分支和实施计划门禁通过 |
+| M2-01 | ACCEPTED | 双状态机、opaque Key、完整性、威胁模型和恢复矩阵设计门禁通过 |
+| M2-02～08 | NOT STARTED | 必须按计划顺序实施和逐项验收 |

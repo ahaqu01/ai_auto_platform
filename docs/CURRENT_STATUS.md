@@ -1,8 +1,8 @@
 # Current Status
 
 > Owner：交付负责人 / 产品 / 技术 / 安全 / QA
-> Updated：2026-09-01
-> Git baseline：M1 最终复验提交 `433a1ba`
+> Updated：2026-09-02
+> Git baseline：M1 验收标签 `m1-accepted` → `c81a005`
 > Database migration：`20260827_07` (head)
 > Status：M1 ACCEPTED / M2 STARTED
 
@@ -28,7 +28,7 @@
 
 ## 决策
 
-M1 最终复验结论为 `ACCEPTED`，M2 进入门禁开放。发布流程仍须满足：本状态与复验报告快进进入 GitHub `main`、main CI 为 success、不可变 `m1-accepted` 与 `m1-review-remediation-accepted` 标签指向同一已验收提交。完成后方可在独立 `codex/m2-assets-storage` 分支提交 M2 业务代码。
+M1 最终复验及发布流程已完成：权威状态和复验报告已进入 `main`，main CI 成功，`m1-accepted` 与 `m1-review-remediation-accepted` 均指向 `c81a005`。M2 在独立 `codex/m2-assets-storage` 分支实施。
 
 M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 → Multipart → 完成校验 → 下载授权 → 清理/对账 → 前端上传”推进。当前仅开放并启动 M2，不表示任何 M2 工作包已验收。
 
@@ -36,6 +36,8 @@ M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 �
 
 ## M2 当前状态
 
-M2-00 启动门禁已通过，独立工作分支为 `codex/m2-assets-storage`。当前允许执行 M2-01“对象 Key 与威胁模型”；M2-02 至 M2-08 均未开始，M2 尚未 ACCEPTED。
+M2-00 启动门禁和 M2-01 设计门禁已通过，独立工作分支为 `codex/m2-assets-storage`。M2-01 已固定双状态机、opaque 对象 Key、完整 SHA-256、授权/归档、威胁模型和失败恢复边界。文档/CI 门禁通过后允许进入 M2-02；M2-02 至 M2-08 尚未实现，M2 尚未 ACCEPTED。
 
 执行计划见 [M2 资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)，启动证据见 [M2-00 验收记录](acceptance/M2-00-kickoff-gate.md)。
+
+M2-01 决策见 [ADR-0006](adr/0006-asset-object-identity-and-lifecycle.md) 与 [M2 设计基线](design/06-M2资产与对象存储设计基线.md)，验收见 [M2-01 验收记录](acceptance/M2-01-对象Key与威胁模型-验收记录.md)。
