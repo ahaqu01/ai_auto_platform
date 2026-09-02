@@ -10,6 +10,7 @@ from platform_api.api.health import router as health_router
 from platform_api.api.organizations import invite_router
 from platform_api.api.organizations import router as organizations_router
 from platform_api.api.projects import router as projects_router
+from platform_api.api.upload_sessions import router as upload_sessions_router
 from platform_api.common.api_contract import ProblemDetails
 from platform_api.common.errors import DomainError
 from platform_api.settings import get_settings
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(auth_router)
+    app.include_router(upload_sessions_router)
     app.include_router(health_router)
     app.include_router(organizations_router)
     app.include_router(invite_router)

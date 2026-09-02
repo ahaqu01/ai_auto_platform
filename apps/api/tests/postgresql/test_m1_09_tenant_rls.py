@@ -175,8 +175,9 @@ async def test_runtime_role_and_api_cross_tenant_matrix(postgresql_api) -> None:
                     "project_members",
                     "audit_events",
                     "outbox_events",
+                    "upload_sessions",
                 ]
             },
         )
     assert attributes == (False, False, False, False)
-    assert enabled == 7
+    assert enabled == 8

@@ -209,6 +209,10 @@ class Settings(BaseSettings):
     oss_public_endpoint: str | None = None
     oss_internal_endpoint: str | None = None
     oss_bucket: str | None = None
+    upload_max_file_bytes: int = 20 * 1024**3
+    upload_max_active_per_organization: int = 20
+    upload_max_reserved_bytes_per_organization: int = 100 * 1024**3
+    upload_session_ttl_seconds: int = 24 * 60 * 60
     otel_exporter_otlp_endpoint: str | None = None
     allow_insecure_private_service_transport: bool = False
 

@@ -3,7 +3,7 @@
 > Owner：交付负责人 / 产品 / 技术 / 安全 / QA
 > Updated：2026-09-02
 > Git baseline：M1 验收标签 `m1-accepted` → `c81a005`
-> Database migration：`20260827_07` (head)
+> Database migration：`20260902_08` (head)
 > Status：M1 ACCEPTED / M2 STARTED
 
 ## 当前事实
@@ -40,7 +40,9 @@ M2-00 启动门禁和 M2-01 设计门禁已通过，独立工作分支为 `codex
 M2-01 设计提交为 `e69b249`，GitHub Actions run `33580267593` 为 success。
 M2-02 对象存储端口和 MinIO/OSS 适配契约已通过验收；实现提交 `d4e0123`，GitHub Actions run `33581470484` 为 success。允许进入 M2-03。真实网络 gateway 仍受 M0R-04R-05 阻断，不得宣称 OSS/MinIO 数据面已通过。
 
+M2-03 上传会话已实现，等待迁移、PostgreSQL/RLS、完整回归和远程 CI 验收；M2-04 尚未开放。
 执行计划见 [M2 资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)，启动证据见 [M2-00 验收记录](acceptance/M2-00-kickoff-gate.md)。
 
 M2-01 决策见 [ADR-0006](adr/0006-asset-object-identity-and-lifecycle.md) 与 [M2 设计基线](design/06-M2资产与对象存储设计基线.md)，验收见 [M2-01 验收记录](acceptance/M2-01-对象Key与威胁模型-验收记录.md)。
 M2-02 验收见 [对象存储适配端口验收记录](acceptance/M2-02-对象存储适配端口-验收记录.md)。
+M2-03 验收见 [上传会话验收记录](acceptance/M2-03-上传会话-验收记录.md)。
