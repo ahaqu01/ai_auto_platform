@@ -4,6 +4,7 @@
 - 日期：2026-09-02
 - 分支：`codex/m2-assets-storage`
 - 基线：`3a23227`
+- 设计提交：`e69b2495530d0ba872244b692aca17fd79ee7ee2`
 
 ## 验收结果
 
@@ -18,8 +19,8 @@
 | MinIO/OSS 分离 | PASS | 设计基线第 6 节 |
 | 凭据治理 | PASS | 交付物不含 AccessKey/Secret；长期凭据不作为应用契约 |
 | 实现边界 | PASS | 无上传 API、迁移或 SDK 代码 |
-| 文档检查 | PENDING_CI | 提交前本地运行，提交后由 CI 复核 |
-| 完整 CI | PENDING_CI | 以本提交对应 GitHub Actions run 为准 |
+| 文档检查 | PASS | `DOC CHECK PASSED` |
+| 完整 CI | PASS | GitHub Actions run `33580267593` |
 
 ## 设计裁决
 
@@ -29,8 +30,8 @@ OSS Staging 的 region、endpoint 和 bucket 已知；长期凭据已明文暴�
 
 ## 结论
 
-设计内容满足 M2-01 强制标准。文档检查和完整 CI 成功后，本记录保持 `ACCEPTED` 并允许进入 M2-02；若任一门禁失败，本记录自动降级为 `FAILED`，不得进入后续实现。
+设计内容满足 M2-01 强制标准，文档检查和完整 CI 均成功。M2-01 状态为 `ACCEPTED`，允许进入 M2-02。
 
 ## 发布证据
 
-提交 SHA 和 CI run 在提交完成后补入权威状态或后续验收证据，不重写已提交历史。
+设计提交 `e69b249` 的 GitHub Actions run `33580267593` 为 `success`。本证据使用追加提交记录，不改写已推送历史。
