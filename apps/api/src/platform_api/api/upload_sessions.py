@@ -278,6 +278,7 @@ async def get_upload_session(
     organization_id: UUID,
     project_id: UUID,
     upload_id: UUID,
+    request: Request,
     current_user: CurrentUser,
     session: DbSession,
 ):
@@ -285,6 +286,31 @@ async def get_upload_session(
         session, organization_id, project_id, upload_id, current_user.id, write=False
     )
     if _expire_if_needed(upload, datetime.now(UTC)):
+        await session.flush()
+        await session.refresh(upload)
+        trace_id = getattr(request.state, "trace_id", None)
+        detail = {"status": upload.status.value}
+        record_audit(
+            session,
+            actor_id=current_user.id,
+            action="upload_session.expire",
+            resource_type="upload_session",
+            resource_id=upload.id,
+            organization_id=organization_id,
+            project_id=project_id,
+            trace_id=trace_id,
+            detail=detail,
+        )
+        record_outbox(
+            session,
+            organization_id=organization_id,
+            aggregate_type="upload_session",
+            aggregate_id=upload.id,
+            event_type="UploadSessionExpired.v1",
+            aggregate_version=upload.version,
+            trace_id=trace_id,
+            payload=detail,
+        )
         await session.commit()
         await session.refresh(upload)
     return upload
