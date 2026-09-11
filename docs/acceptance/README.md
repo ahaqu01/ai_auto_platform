@@ -74,3 +74,5 @@ M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2
 | M2-02 | ACCEPTED | 对象存储端口、MinIO/OSS 适配契约及 CI 通过；网络 gateway 继续受安全门禁约束 |
 | M2-03 | ACCEPTED | 上传会话、opaque Key、配额、幂等、取消、过期、RLS 与 CI 通过 |
 | M2-04～08 | NOT STARTED | 必须按计划顺序实施和逐项验收 |
+
+| M2-05 | ACCEPTED | Multipart 完成、完整流式 SHA-256、大小/摘要强校验、资产隔离及 RLS/CI 通过 |
