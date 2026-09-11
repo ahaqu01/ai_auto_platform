@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from platform_api import __version__
+from platform_api.api.artifacts import router as artifacts_router
 from platform_api.api.auth import router as auth_router
 from platform_api.api.health import router as health_router
 from platform_api.api.organizations import invite_router
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(auth_router)
+    app.include_router(artifacts_router)
     app.include_router(upload_sessions_router)
     app.include_router(health_router)
     app.include_router(organizations_router)

@@ -1,6 +1,35 @@
 {
   "components": {
     "schemas": {
+      "ArtifactPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ArtifactPage",
+        "type": "object"
+      },
       "ArtifactRead": {
         "additionalProperties": false,
         "properties": {
@@ -117,6 +146,44 @@
         ],
         "title": "ArtifactStatus",
         "type": "string"
+      },
+      "DownloadUrlRead": {
+        "additionalProperties": false,
+        "properties": {
+          "content_disposition": {
+            "title": "Content Disposition",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_in_seconds",
+          "content_disposition"
+        ],
+        "title": "DownloadUrlRead",
+        "type": "object"
+      },
+      "DownloadUrlRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_seconds": {
+            "default": 600,
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Expires In Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "DownloadUrlRequest",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2618,6 +2685,533 @@
         "summary": "Update Project",
         "tags": [
           "projects"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/projects/{project_id}/artifacts": {
+      "get": {
+        "operationId": "list_artifacts_api_v1_organizations__organization_id__projects__project_id__artifacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer authentication challenge",
+                "schema": {
+                  "example": "Bearer",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authenticated but not authorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Resource not found or hidden by tenant boundary"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Artifacts",
+        "tags": [
+          "artifacts"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/projects/{project_id}/artifacts/{artifact_id}": {
+      "delete": {
+        "operationId": "delete_artifact_api_v1_organizations__organization_id__projects__project_id__artifacts__artifact_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer authentication challenge",
+                "schema": {
+                  "example": "Bearer",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authenticated but not authorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Resource not found or hidden by tenant boundary"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Artifact",
+        "tags": [
+          "artifacts"
+        ]
+      },
+      "get": {
+        "operationId": "get_artifact_api_v1_organizations__organization_id__projects__project_id__artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer authentication challenge",
+                "schema": {
+                  "example": "Bearer",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authenticated but not authorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Resource not found or hidden by tenant boundary"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Artifact",
+        "tags": [
+          "artifacts"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/projects/{project_id}/artifacts/{artifact_id}:download-url": {
+      "post": {
+        "operationId": "create_download_url_api_v1_organizations__organization_id__projects__project_id__artifacts__artifact_id__download_url_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadUrlRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer authentication challenge",
+                "schema": {
+                  "example": "Bearer",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authenticated but not authorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Resource not found or hidden by tenant boundary"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Download Url",
+        "tags": [
+          "artifacts"
         ]
       }
     },
