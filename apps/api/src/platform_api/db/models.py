@@ -149,9 +149,7 @@ class UploadSessionModel(IdMixin, TimestampMixin, Base):
     project_id: Mapped[UUID] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     display_name: Mapped[str] = mapped_column(String(512), nullable=False)
     object_key: Mapped[str] = mapped_column(String(64), nullable=False)
     expected_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -172,6 +170,25 @@ class UploadSessionModel(IdMixin, TimestampMixin, Base):
         Integer, default=1, server_default="1", nullable=False
     )
     __mapper_args__: ClassVar[dict[str, object]] = dict(version_id_col=version)  # noqa: C408
+
+
+class UploadPartModel(TimestampMixin, Base):
+    __tablename__ = "upload_parts"
+    __table_args__ = (
+        CheckConstraint(
+            "part_number >= 1 AND part_number <= 10000", name="ck_upload_parts_number"
+        ),
+        CheckConstraint("size_bytes > 0", name="ck_upload_parts_size"),
+    )
+    upload_session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("upload_sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    part_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    etag: Mapped[str] = mapped_column(String(512), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class AuditEventModel(IdMixin, Base):

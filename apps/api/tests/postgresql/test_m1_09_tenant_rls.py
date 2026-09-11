@@ -176,6 +176,7 @@ async def test_runtime_role_and_api_cross_tenant_matrix(postgresql_api) -> None:
                     "audit_events",
                     "outbox_events",
                     "upload_sessions",
+                    "upload_parts",
                 ]
             },
         )

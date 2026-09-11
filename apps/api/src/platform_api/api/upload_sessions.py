@@ -30,6 +30,7 @@ from platform_api.db.models import (
     OrganizationModel,
     ProjectMemberModel,
     ProjectModel,
+    UploadPartModel,
     UploadSessionModel,
 )
 from platform_api.db.session import get_session
@@ -38,6 +39,7 @@ from platform_api.modules.artifact.domain import (
     UploadSessionStatus,
     require_upload_session_cancellable,
 )
+from platform_api.modules.artifact.storage import ObjectStorageError, ObjectStoragePort
 from platform_api.modules.organization.domain import OrganizationRole
 from platform_api.modules.project.domain import ProjectRole, ProjectStatus
 from platform_api.settings import get_settings
@@ -48,6 +50,14 @@ router = APIRouter(
     responses=PROTECTED_ERROR_RESPONSES,
 )
 DbSession = Annotated[AsyncSession, Depends(get_session)]
+
+
+def get_object_storage() -> ObjectStoragePort | None:
+    """Deployment composition hook; no unsafe default network client is installed."""
+    return None
+
+
+Storage = Annotated[ObjectStoragePort | None, Depends(get_object_storage)]
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 OBJECT_KEY_PATTERN = re.compile(r"^v1/o/[0-9a-f]{32}$")
 
@@ -62,7 +72,9 @@ class UploadSessionCreate(StrictModel):
     @classmethod
     def reject_control_characters(cls, value: str) -> str:
         normalized = value.strip()
-        if not normalized or any(ord(character) < 32 or ord(character) == 127 for character in normalized):
+        if not normalized or any(
+            ord(character) < 32 or ord(character) == 127 for character in normalized
+        ):
             raise ValueError("control characters are not allowed")
         return normalized
 
@@ -91,6 +103,59 @@ class UploadSessionRead(StrictOrmModel):
     updated_at: datetime
 
 
+class UploadPartSignRequest(StrictModel):
+    part_numbers: list[int] = Field(min_length=1, max_length=100)
+    expires_in_seconds: int = Field(default=900, ge=60, le=3600)
+
+    @field_validator("part_numbers")
+    @classmethod
+    def validate_part_numbers(cls, value: list[int]) -> list[int]:
+        if any(number < 1 or number > 10_000 for number in value):
+            raise ValueError("part number must be between 1 and 10000")
+        if len(set(value)) != len(value):
+            raise ValueError("part numbers must be unique")
+        return value
+
+
+class UploadPartSigned(StrictModel):
+    part_number: int
+    url: str
+    expires_in_seconds: int
+
+
+class UploadPartRegister(StrictModel):
+    etag: str = Field(min_length=1, max_length=512)
+    size_bytes: int = Field(gt=0)
+
+    @field_validator("etag")
+    @classmethod
+    def validate_etag(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or any(
+            ord(character) < 32 or ord(character) == 127 for character in normalized
+        ):
+            raise ValueError("invalid etag")
+        return normalized
+
+
+class UploadPartRead(StrictOrmModel):
+    part_number: int
+    etag: str
+    size_bytes: int
+    created_at: datetime
+    updated_at: datetime
+
+
+def _storage_required(storage: ObjectStoragePort | None) -> ObjectStoragePort:
+    if storage is None:
+        raise DomainError("STORAGE_UNAVAILABLE", "对象存储运行时尚未配置", 503)
+    return storage
+
+
+def _storage_failure(exc: ObjectStorageError) -> DomainError:
+    return DomainError("STORAGE_UNAVAILABLE", "对象存储暂时不可用", 503)
+
+
 async def _authorized_project(
     session: AsyncSession,
     organization_id: UUID,
@@ -99,7 +164,9 @@ async def _authorized_project(
     *,
     write: bool,
 ) -> ProjectModel:
-    organization_member = await require_organization_member(session, organization_id, actor_id)
+    organization_member = await require_organization_member(
+        session, organization_id, actor_id
+    )
     project = await session.scalar(
         select(ProjectModel).where(
             ProjectModel.id == project_id,
@@ -116,7 +183,7 @@ async def _authorized_project(
         if write and member.role not in {ProjectRole.ADMIN, ProjectRole.ENGINEER}:
             raise DomainError("PROJECT_WRITE_REQUIRED", "需要项目工程师权限", 403)
     if write and project.status is not ProjectStatus.ACTIVE:
-            raise DomainError("PROJECT_ARCHIVED", "归档项目不可创建资产或任务", 409)
+        raise DomainError("PROJECT_ARCHIVED", "归档项目不可创建资产或任务", 409)
     return project
 
 
@@ -130,7 +197,9 @@ async def _lock_organization(session: AsyncSession, organization_id: UUID) -> No
         raise DomainError("ORGANIZATION_NOT_FOUND", "企业不存在或无权访问", 404)
 
 
-async def _active_quota(session: AsyncSession, organization_id: UUID) -> tuple[int, int]:
+async def _active_quota(
+    session: AsyncSession, organization_id: UUID
+) -> tuple[int, int]:
     result = (
         await session.execute(
             select(
@@ -217,7 +286,10 @@ async def create_upload_session(
     active_count, reserved_bytes = await _active_quota(session, organization_id)
     if active_count >= settings.upload_max_active_per_organization:
         raise DomainError("UPLOAD_CONCURRENCY_LIMIT", "企业并发上传会话已达上限", 429)
-    if reserved_bytes + payload.size_bytes > settings.upload_max_reserved_bytes_per_organization:
+    if (
+        reserved_bytes + payload.size_bytes
+        > settings.upload_max_reserved_bytes_per_organization
+    ):
         raise DomainError("QUOTA_EXCEEDED", "企业上传预留容量不足", 409)
     object_key = f"v1/o/{secrets.token_hex(16)}"
     assert OBJECT_KEY_PATTERN.fullmatch(object_key)
@@ -232,7 +304,8 @@ async def create_upload_session(
         declared_content_type=payload.content_type,
         status=UploadSessionStatus.PENDING_UPLOAD,
         reserved_bytes=payload.size_bytes,
-        expires_at=datetime.now(UTC) + timedelta(seconds=settings.upload_session_ttl_seconds),
+        expires_at=datetime.now(UTC)
+        + timedelta(seconds=settings.upload_session_ttl_seconds),
     )
     session.add(upload)
     await session.flush()
@@ -316,6 +389,179 @@ async def get_upload_session(
     return upload
 
 
+@router.post("/{upload_id}/parts:sign", response_model=list[UploadPartSigned])
+async def sign_upload_parts(
+    organization_id: UUID,
+    project_id: UUID,
+    upload_id: UUID,
+    payload: UploadPartSignRequest,
+    current_user: CurrentUser,
+    session: DbSession,
+    storage: Storage,
+    request: Request,
+):
+    await _authorized_project(
+        session, organization_id, project_id, current_user.id, write=True
+    )
+    upload = await session.scalar(
+        select(UploadSessionModel)
+        .where(
+            UploadSessionModel.id == upload_id,
+            UploadSessionModel.organization_id == organization_id,
+            UploadSessionModel.project_id == project_id,
+        )
+        .with_for_update()
+    )
+    if upload is None:
+        raise DomainError("UPLOAD_SESSION_NOT_FOUND", "上传会话不存在或无权限访问", 404)
+    if _expire_if_needed(upload, datetime.now(UTC)):
+        await session.commit()
+        raise DomainError("UPLOAD_EXPIRED", "上传会话已过期", 409)
+    port = _storage_required(storage)
+    initialized = upload.status is UploadSessionStatus.PENDING_UPLOAD
+    try:
+        if initialized:
+            upload.storage_upload_id = await port.start_multipart(
+                upload.object_key, upload.declared_content_type
+            )
+            upload.status = UploadSessionStatus.UPLOADING
+            await session.flush()
+        elif upload.status is not UploadSessionStatus.UPLOADING:
+            raise DomainError(
+                "UPLOAD_STATE_CONFLICT", "上传会话状态不允许分片签名", 409
+            )
+        if not upload.storage_upload_id:
+            raise DomainError(
+                "UPLOAD_STATE_CONFLICT", "上传会话缺少远端 Multipart 标识", 409
+            )
+        signed = []
+        for part_number in payload.part_numbers:
+            presigned = await port.sign_upload_part(
+                upload.object_key,
+                upload.storage_upload_id,
+                part_number,
+                payload.expires_in_seconds,
+            )
+            signed.append(
+                UploadPartSigned(
+                    part_number=part_number,
+                    url=presigned.url,
+                    expires_in_seconds=presigned.expires_in_seconds,
+                )
+            )
+    except ObjectStorageError as exc:
+        raise _storage_failure(exc) from exc
+    if initialized:
+        trace_id = getattr(request.state, "trace_id", None)
+        detail = {"status": upload.status.value}
+        record_audit(
+            session,
+            actor_id=current_user.id,
+            action="upload_session.multipart.initialize",
+            resource_type="upload_session",
+            resource_id=upload.id,
+            organization_id=organization_id,
+            project_id=project_id,
+            trace_id=trace_id,
+            detail=detail,
+        )
+        record_outbox(
+            session,
+            organization_id=organization_id,
+            aggregate_type="upload_session",
+            aggregate_id=upload.id,
+            event_type="UploadSessionMultipartInitialized.v1",
+            aggregate_version=upload.version,
+            trace_id=trace_id,
+            payload=detail,
+        )
+    await session.commit()
+    return signed
+
+
+@router.put("/{upload_id}/parts/{part_number}", response_model=UploadPartRead)
+async def register_upload_part(
+    organization_id: UUID,
+    project_id: UUID,
+    upload_id: UUID,
+    part_number: int,
+    payload: UploadPartRegister,
+    current_user: CurrentUser,
+    session: DbSession,
+    request: Request,
+):
+    if part_number < 1 or part_number > 10_000:
+        raise DomainError("INVALID_PART_NUMBER", "分片编号必须在 1 到 10000 之间", 422)
+    _, upload = await _visible_upload(
+        session, organization_id, project_id, upload_id, current_user.id, write=True
+    )
+    if _expire_if_needed(upload, datetime.now(UTC)):
+        await session.commit()
+        raise DomainError("UPLOAD_EXPIRED", "上传会话已过期", 409)
+    if upload.status is not UploadSessionStatus.UPLOADING:
+        raise DomainError("UPLOAD_STATE_CONFLICT", "上传会话状态不允许登记分片", 409)
+    part = await session.get(UploadPartModel, (upload.id, part_number))
+    if part is not None:
+        if part.etag != payload.etag or part.size_bytes != payload.size_bytes:
+            raise DomainError("UPLOAD_PART_CONFLICT", "分片已使用不同内容登记", 409)
+        return part
+    part = UploadPartModel(
+        upload_session_id=upload.id,
+        organization_id=organization_id,
+        part_number=part_number,
+        etag=payload.etag,
+        size_bytes=payload.size_bytes,
+    )
+    session.add(part)
+    await session.flush()
+    trace_id = getattr(request.state, "trace_id", None)
+    detail = {"partNumber": part_number, "sizeBytes": payload.size_bytes}
+    record_audit(
+        session,
+        actor_id=current_user.id,
+        action="upload_part.register",
+        resource_type="upload_session",
+        resource_id=upload.id,
+        organization_id=organization_id,
+        project_id=project_id,
+        trace_id=trace_id,
+        detail=detail,
+    )
+    record_outbox(
+        session,
+        organization_id=organization_id,
+        aggregate_type="upload_session",
+        aggregate_id=upload.id,
+        event_type="UploadPartRegistered.v1",
+        aggregate_version=upload.version,
+        trace_id=trace_id,
+        payload=detail,
+    )
+    await session.commit()
+    await session.refresh(part)
+    return part
+
+
+@router.get("/{upload_id}/parts", response_model=list[UploadPartRead])
+async def list_upload_parts(
+    organization_id: UUID,
+    project_id: UUID,
+    upload_id: UUID,
+    current_user: CurrentUser,
+    session: DbSession,
+):
+    _, upload = await _visible_upload(
+        session, organization_id, project_id, upload_id, current_user.id, write=False
+    )
+    return list(
+        await session.scalars(
+            select(UploadPartModel)
+            .where(UploadPartModel.upload_session_id == upload.id)
+            .order_by(UploadPartModel.part_number)
+        )
+    )
+
+
 @router.post("/{upload_id}:cancel", response_model=UploadSessionRead)
 async def cancel_upload_session(
     organization_id: UUID,
@@ -324,6 +570,7 @@ async def cancel_upload_session(
     current_user: CurrentUser,
     session: DbSession,
     request: Request,
+    storage: Storage,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     project, upload = await _visible_upload(
@@ -345,6 +592,12 @@ async def cancel_upload_session(
     expired = _expire_if_needed(upload, datetime.now(UTC))
     if not expired:
         require_upload_session_cancellable(upload.status)
+        if upload.storage_upload_id:
+            port = _storage_required(storage)
+            try:
+                await port.abort_multipart(upload.object_key, upload.storage_upload_id)
+            except ObjectStorageError as exc:
+                raise _storage_failure(exc) from exc
         upload.status = UploadSessionStatus.ABORTED
         upload.reserved_bytes = 0
     await session.flush()
@@ -367,7 +620,9 @@ async def cancel_upload_session(
         organization_id=project.organization_id,
         aggregate_type="upload_session",
         aggregate_id=upload.id,
-        event_type="UploadSessionCancelled.v1" if not expired else "UploadSessionExpired.v1",
+        event_type="UploadSessionCancelled.v1"
+        if not expired
+        else "UploadSessionExpired.v1",
         aggregate_version=upload.version,
         trace_id=trace_id,
         payload=detail,
