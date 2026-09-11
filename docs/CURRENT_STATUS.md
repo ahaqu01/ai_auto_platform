@@ -3,7 +3,7 @@
 > Owner：交付负责人 / 产品 / 技术 / 安全 / QA
 > Updated：2026-09-02
 > Git baseline：M1 验收标签 `m1-accepted` → `c81a005`
-> Database migration：`20260902_08` (head)
+> Database migration：`20260911_09` (head)
 > Status：M1 ACCEPTED / M2 STARTED
 
 ## 当前事实
@@ -46,3 +46,5 @@ M2-03 上传会话已通过验收；实现提交 `cca6a9b`，GitHub Actions run 
 M2-01 决策见 [ADR-0006](adr/0006-asset-object-identity-and-lifecycle.md) 与 [M2 设计基线](design/06-M2资产与对象存储设计基线.md)，验收见 [M2-01 验收记录](acceptance/M2-01-对象Key与威胁模型-验收记录.md)。
 M2-02 验收见 [对象存储适配端口验收记录](acceptance/M2-02-对象存储适配端口-验收记录.md)。
 M2-03 验收见 [上传会话验收记录](acceptance/M2-03-上传会话-验收记录.md)。
+
+M2-04 Multipart 已通过验收：实现提交 `eb78d1a`，RLS 验收修复 `b4b89d0`，GitHub Actions run `34555956515` 为 success；当前进入 M2-05。
