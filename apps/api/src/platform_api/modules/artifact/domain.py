@@ -22,6 +22,27 @@ class UploadSessionStatus(StrEnum):
         }
 
 
+class ArtifactStatus(StrEnum):
+    VERIFYING = "VERIFYING"
+    AVAILABLE = "AVAILABLE"
+    QUARANTINED = "QUARANTINED"
+    FAILED = "FAILED"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
+
+
+class IntegrityStatus(StrEnum):
+    VERIFIED = "VERIFIED"
+    MISMATCH = "MISMATCH"
+
+
+class SecurityScanStatus(StrEnum):
+    NOT_REQUIRED = "NOT_REQUIRED"
+    PENDING = "PENDING"
+    CLEAN = "CLEAN"
+    BLOCKED = "BLOCKED"
+
+
 ACTIVE_UPLOAD_STATUSES = {
     UploadSessionStatus.PENDING_UPLOAD,
     UploadSessionStatus.UPLOADING,

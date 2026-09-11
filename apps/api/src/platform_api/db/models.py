@@ -21,7 +21,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from platform_api.db.base import Base, IdMixin, TimestampMixin
-from platform_api.modules.artifact.domain import UploadSessionStatus
+from platform_api.modules.artifact.domain import (
+    ArtifactStatus,
+    IntegrityStatus,
+    SecurityScanStatus,
+    UploadSessionStatus,
+)
 from platform_api.modules.organization.domain import OrganizationRole
 from platform_api.modules.project.domain import ProjectRole, ProjectStatus
 
@@ -189,6 +194,46 @@ class UploadPartModel(TimestampMixin, Base):
     )
     etag: Mapped[str] = mapped_column(String(512), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class ArtifactModel(IdMixin, TimestampMixin, Base):
+    __tablename__ = "artifacts"
+    __table_args__ = (
+        UniqueConstraint("upload_session_id", name="uq_artifacts_upload_session_id"),
+        UniqueConstraint("object_key", name="uq_artifacts_object_key"),
+        CheckConstraint("size_bytes >= 0", name="ck_artifacts_size"),
+    )
+    upload_session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("upload_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    bucket_alias: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expected_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    verified_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    declared_content_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    detected_content_type: Mapped[str | None] = mapped_column(String(255))
+    integrity_status: Mapped[IntegrityStatus] = mapped_column(
+        Enum(IntegrityStatus, native_enum=False, length=24), nullable=False
+    )
+    security_scan_status: Mapped[SecurityScanStatus] = mapped_column(
+        Enum(SecurityScanStatus, native_enum=False, length=24), nullable=False
+    )
+    status: Mapped[ArtifactStatus] = mapped_column(
+        Enum(ArtifactStatus, native_enum=False, length=24), nullable=False
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )
+    __mapper_args__: ClassVar[dict[str, object]] = dict(version_id_col=version)  # noqa: C408
 
 
 class AuditEventModel(IdMixin, Base):

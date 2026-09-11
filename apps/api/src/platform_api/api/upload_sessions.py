@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, status
@@ -27,6 +27,7 @@ from platform_api.common.reliability import (
     record_outbox,
 )
 from platform_api.db.models import (
+    ArtifactModel,
     OrganizationModel,
     ProjectMemberModel,
     ProjectModel,
@@ -34,12 +35,24 @@ from platform_api.db.models import (
     UploadSessionModel,
 )
 from platform_api.db.session import get_session
+from platform_api.modules.artifact.completion import (
+    VerificationStoragePort,
+    verify_object,
+)
 from platform_api.modules.artifact.domain import (
     ACTIVE_UPLOAD_STATUSES,
+    ArtifactStatus,
+    IntegrityStatus,
+    SecurityScanStatus,
     UploadSessionStatus,
     require_upload_session_cancellable,
 )
-from platform_api.modules.artifact.storage import ObjectStorageError, ObjectStoragePort
+from platform_api.modules.artifact.storage import (
+    CompletedPart,
+    ObjectStorageError,
+    ObjectStoragePort,
+    StorageErrorCode,
+)
 from platform_api.modules.organization.domain import OrganizationRole
 from platform_api.modules.project.domain import ProjectRole, ProjectStatus
 from platform_api.settings import get_settings
@@ -136,6 +149,45 @@ class UploadPartRegister(StrictModel):
         ):
             raise ValueError("invalid etag")
         return normalized
+
+
+class UploadCompletePart(StrictModel):
+    part_number: int = Field(ge=1, le=10_000)
+    etag: str = Field(min_length=1, max_length=512)
+
+
+class UploadCompleteRequest(StrictModel):
+    parts: list[UploadCompletePart] = Field(min_length=1, max_length=10_000)
+
+    @field_validator("parts")
+    @classmethod
+    def validate_parts(
+        cls, value: list[UploadCompletePart]
+    ) -> list[UploadCompletePart]:
+        numbers = [part.part_number for part in value]
+        if numbers != sorted(numbers) or len(numbers) != len(set(numbers)):
+            raise ValueError("parts must be unique and sorted by part number")
+        return value
+
+
+class ArtifactRead(StrictOrmModel):
+    id: UUID
+    upload_session_id: UUID
+    organization_id: UUID
+    project_id: UUID
+    created_by: UUID
+    display_name: str
+    size_bytes: int
+    expected_sha256: str
+    verified_sha256: str
+    declared_content_type: str
+    detected_content_type: str | None
+    integrity_status: IntegrityStatus
+    security_scan_status: SecurityScanStatus
+    status: ArtifactStatus
+    version: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class UploadPartRead(StrictOrmModel):
@@ -559,6 +611,179 @@ async def list_upload_parts(
             .where(UploadPartModel.upload_session_id == upload.id)
             .order_by(UploadPartModel.part_number)
         )
+    )
+
+
+@router.post(
+    "/{upload_id}:complete",
+    response_model=ArtifactRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def complete_upload_session(
+    organization_id: UUID,
+    project_id: UUID,
+    upload_id: UUID,
+    payload: UploadCompleteRequest,
+    current_user: CurrentUser,
+    session: DbSession,
+    storage: Storage,
+    request: Request,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    if idempotency_key is None:
+        raise DomainError("IDEMPOTENCY_KEY_REQUIRED", "必须提供 Idempotency-Key", 428)
+    if not 16 <= len(idempotency_key) <= 128:
+        raise DomainError(
+            "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key 长度必须为 16 到 128", 400
+        )
+    await _authorized_project(
+        session, organization_id, project_id, current_user.id, write=True
+    )
+    upload = await session.scalar(
+        select(UploadSessionModel).where(
+            UploadSessionModel.id == upload_id,
+            UploadSessionModel.organization_id == organization_id,
+            UploadSessionModel.project_id == project_id,
+        )
+    )
+    if upload is None:
+        raise DomainError("UPLOAD_SESSION_NOT_FOUND", "上传会话不存在或无权访问", 404)
+    existing = await session.scalar(
+        select(ArtifactModel).where(ArtifactModel.upload_session_id == upload.id)
+    )
+    if upload.status is UploadSessionStatus.COMPLETED and existing is not None:
+        return JSONResponse(
+            status_code=200,
+            content=ArtifactRead.model_validate(existing).model_dump(mode="json"),
+            headers={"Idempotent-Replayed": "true"},
+        )
+    if _expire_if_needed(upload, datetime.now(UTC)):
+        await session.commit()
+        raise DomainError("UPLOAD_EXPIRED", "上传会话已过期", 409)
+    if upload.status not in {
+        UploadSessionStatus.UPLOADING,
+        UploadSessionStatus.COMPLETING,
+    }:
+        raise DomainError("UPLOAD_STATE_CONFLICT", "上传会话状态不允许完成", 409)
+    if not upload.storage_upload_id:
+        raise DomainError(
+            "UPLOAD_STATE_CONFLICT", "上传会话缺少远端 Multipart 标识", 409
+        )
+    registered = list(
+        await session.scalars(
+            select(UploadPartModel)
+            .where(UploadPartModel.upload_session_id == upload.id)
+            .order_by(UploadPartModel.part_number)
+        )
+    )
+    expected_parts = [(part.part_number, part.etag) for part in registered]
+    submitted_parts = [(part.part_number, part.etag.strip()) for part in payload.parts]
+    if (
+        submitted_parts != expected_parts
+        or sum(part.size_bytes for part in registered) != upload.expected_size
+    ):
+        raise DomainError("PART_LIST_MISMATCH", "提交的分片清单或总大小不完整", 409)
+
+    if upload.status is UploadSessionStatus.UPLOADING:
+        upload.status = UploadSessionStatus.COMPLETING
+        await session.commit()
+    port = _storage_required(storage)
+    completed_parts = [CompletedPart(number, etag) for number, etag in submitted_parts]
+    try:
+        await port.complete_multipart(
+            upload.object_key, upload.storage_upload_id, completed_parts
+        )
+    except ObjectStorageError as complete_error:
+        try:
+            await port.head(upload.object_key)
+        except ObjectStorageError:
+            if complete_error.code is StorageErrorCode.NOT_FOUND:
+                raise DomainError(
+                    "OBJECT_MISSING", "完成后的对象不存在", 409
+                ) from complete_error
+            raise _storage_failure(complete_error) from complete_error
+    try:
+        verification = await verify_object(
+            cast(VerificationStoragePort, port), upload.object_key
+        )
+    except ObjectStorageError as exc:
+        if exc.code is StorageErrorCode.NOT_FOUND:
+            raise DomainError("OBJECT_MISSING", "完成后的对象不存在", 409) from exc
+        raise _storage_failure(exc) from exc
+
+    size_matches = verification.metadata.size_bytes == upload.expected_size
+    checksum_matches = verification.verified_sha256 == upload.expected_sha256
+    integrity = (
+        IntegrityStatus.VERIFIED
+        if size_matches and checksum_matches
+        else IntegrityStatus.MISMATCH
+    )
+    artifact_status = (
+        ArtifactStatus.AVAILABLE
+        if integrity is IntegrityStatus.VERIFIED
+        else ArtifactStatus.QUARANTINED
+    )
+    artifact = ArtifactModel(
+        upload_session_id=upload.id,
+        organization_id=organization_id,
+        project_id=project_id,
+        created_by=current_user.id,
+        display_name=upload.display_name,
+        object_key=upload.object_key,
+        bucket_alias="primary",
+        size_bytes=verification.metadata.size_bytes,
+        expected_sha256=upload.expected_sha256,
+        verified_sha256=verification.verified_sha256,
+        declared_content_type=upload.declared_content_type,
+        detected_content_type=verification.metadata.content_type,
+        integrity_status=integrity,
+        security_scan_status=SecurityScanStatus.NOT_REQUIRED,
+        status=artifact_status,
+    )
+    session.add(artifact)
+    upload.status = UploadSessionStatus.COMPLETED
+    upload.completed_at = datetime.now(UTC)
+    upload.reserved_bytes = 0
+    await session.flush()
+    trace_id = getattr(request.state, "trace_id", None)
+    detail = {
+        "status": artifact.status.value,
+        "integrityStatus": integrity.value,
+        "sizeBytes": artifact.size_bytes,
+    }
+    record_audit(
+        session,
+        actor_id=current_user.id,
+        action="upload_session.complete",
+        resource_type="artifact",
+        resource_id=artifact.id,
+        organization_id=organization_id,
+        project_id=project_id,
+        trace_id=trace_id,
+        detail=detail,
+    )
+    record_outbox(
+        session,
+        organization_id=organization_id,
+        aggregate_type="artifact",
+        aggregate_id=artifact.id,
+        event_type="ArtifactVerified.v1"
+        if integrity is IntegrityStatus.VERIFIED
+        else "ArtifactQuarantined.v1",
+        aggregate_version=artifact.version,
+        trace_id=trace_id,
+        payload=detail,
+    )
+    await session.commit()
+    await session.refresh(artifact)
+    if not size_matches:
+        raise DomainError("SIZE_MISMATCH", "对象大小与上传声明不一致", 409)
+    if not checksum_matches:
+        raise DomainError("CHECKSUM_MISMATCH", "对象摘要与上传声明不一致", 409)
+    return JSONResponse(
+        status_code=201,
+        content=ArtifactRead.model_validate(artifact).model_dump(mode="json"),
+        headers={"Idempotent-Replayed": "false", "ETag": f'"{artifact.version}"'},
     )
 
 

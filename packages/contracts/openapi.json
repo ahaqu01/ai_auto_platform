@@ -1,6 +1,123 @@
 {
   "components": {
     "schemas": {
+      "ArtifactRead": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "uuid",
+            "title": "Created By",
+            "type": "string"
+          },
+          "declared_content_type": {
+            "title": "Declared Content Type",
+            "type": "string"
+          },
+          "detected_content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Content Type"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "expected_sha256": {
+            "title": "Expected Sha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "integrity_status": {
+            "$ref": "#/components/schemas/IntegrityStatus"
+          },
+          "organization_id": {
+            "format": "uuid",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "security_scan_status": {
+            "$ref": "#/components/schemas/SecurityScanStatus"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ArtifactStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upload_session_id": {
+            "format": "uuid",
+            "title": "Upload Session Id",
+            "type": "string"
+          },
+          "verified_sha256": {
+            "title": "Verified Sha256",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "upload_session_id",
+          "organization_id",
+          "project_id",
+          "created_by",
+          "display_name",
+          "size_bytes",
+          "expected_sha256",
+          "verified_sha256",
+          "declared_content_type",
+          "detected_content_type",
+          "integrity_status",
+          "security_scan_status",
+          "status",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ArtifactRead",
+        "type": "object"
+      },
+      "ArtifactStatus": {
+        "enum": [
+          "VERIFYING",
+          "AVAILABLE",
+          "QUARANTINED",
+          "FAILED",
+          "DELETING",
+          "DELETED"
+        ],
+        "title": "ArtifactStatus",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -37,6 +154,14 @@
         ],
         "title": "HealthResponse",
         "type": "object"
+      },
+      "IntegrityStatus": {
+        "enum": [
+          "VERIFIED",
+          "MISMATCH"
+        ],
+        "title": "IntegrityStatus",
+        "type": "string"
       },
       "InviteCreate": {
         "additionalProperties": false,
@@ -598,6 +723,58 @@
           "checks"
         ],
         "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "SecurityScanStatus": {
+        "enum": [
+          "NOT_REQUIRED",
+          "PENDING",
+          "CLEAN",
+          "BLOCKED"
+        ],
+        "title": "SecurityScanStatus",
+        "type": "string"
+      },
+      "UploadCompletePart": {
+        "additionalProperties": false,
+        "properties": {
+          "etag": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Etag",
+            "type": "string"
+          },
+          "part_number": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Part Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "part_number",
+          "etag"
+        ],
+        "title": "UploadCompletePart",
+        "type": "object"
+      },
+      "UploadCompleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/UploadCompletePart"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Parts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parts"
+        ],
+        "title": "UploadCompleteRequest",
         "type": "object"
       },
       "UploadPartRead": {
@@ -3695,6 +3872,149 @@
           }
         ],
         "summary": "Cancel Upload Session",
+        "tags": [
+          "upload-sessions"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/projects/{project_id}/upload-sessions/{upload_id}:complete": {
+      "post": {
+        "operationId": "complete_upload_session_api_v1_organizations__organization_id__projects__project_id__upload_sessions__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer authentication challenge",
+                "schema": {
+                  "example": "Bearer",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authenticated but not authorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Resource not found or hidden by tenant boundary"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Request conflicts with current resource state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete Upload Session",
         "tags": [
           "upload-sessions"
         ]

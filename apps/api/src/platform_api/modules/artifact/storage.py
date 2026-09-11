@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol, TypeVar
@@ -24,7 +24,9 @@ class StorageErrorCode(StrEnum):
 
 
 class ObjectStorageError(Exception):
-    def __init__(self, code: StorageErrorCode, safe_detail: str, *, retryable: bool) -> None:
+    def __init__(
+        self, code: StorageErrorCode, safe_detail: str, *, retryable: bool
+    ) -> None:
         super().__init__(safe_detail)
         self.code = code
         self.safe_detail = safe_detail
@@ -123,6 +125,10 @@ class S3CompatibleGateway(Protocol):
 
     async def head_object(self, bucket: str, object_key: str) -> ObjectMetadata: ...
 
+    def read_object_chunks(
+        self, bucket: str, object_key: str
+    ) -> AsyncIterator[bytes]: ...
+
     async def presign_download(
         self,
         bucket: str,
@@ -136,7 +142,11 @@ class S3CompatibleGateway(Protocol):
 
 class ObjectStoragePort(Protocol):
     async def start_multipart(
-        self, object_key: str, content_type: str, *, cancellation: CancellationSignal | None = None
+        self,
+        object_key: str,
+        content_type: str,
+        *,
+        cancellation: CancellationSignal | None = None,
     ) -> str: ...
 
     async def sign_upload_part(
@@ -170,6 +180,10 @@ class ObjectStoragePort(Protocol):
         self, object_key: str, *, cancellation: CancellationSignal | None = None
     ) -> ObjectMetadata: ...
 
+    def read_chunks(
+        self, object_key: str, *, cancellation: CancellationSignal | None = None
+    ) -> AsyncIterator[bytes]: ...
+
     async def sign_download(
         self,
         object_key: str,
@@ -197,7 +211,11 @@ class S3CompatibleObjectStorageAdapter:
         self._retry = retry_policy or RetryPolicy()
 
     async def start_multipart(
-        self, object_key: str, content_type: str, *, cancellation: CancellationSignal | None = None
+        self,
+        object_key: str,
+        content_type: str,
+        *,
+        cancellation: CancellationSignal | None = None,
     ) -> str:
         return await self._run(
             "start_multipart",
@@ -274,8 +292,42 @@ class S3CompatibleObjectStorageAdapter:
         self, object_key: str, *, cancellation: CancellationSignal | None = None
     ) -> ObjectMetadata:
         return await self._run(
-            "head", object_key, lambda: self._gateway.head_object(self._profile.bucket, object_key), cancellation
+            "head",
+            object_key,
+            lambda: self._gateway.head_object(self._profile.bucket, object_key),
+            cancellation,
         )
+
+    async def read_chunks(
+        self, object_key: str, *, cancellation: CancellationSignal | None = None
+    ) -> AsyncIterator[bytes]:
+        key_ref = hashlib.sha256(object_key.encode()).hexdigest()[:12]
+        try:
+            async for chunk in self._gateway.read_object_chunks(
+                self._profile.bucket, object_key
+            ):
+                if cancellation and cancellation.is_set():
+                    raise ObjectStorageError(
+                        StorageErrorCode.CANCELLED,
+                        "Storage operation cancelled",
+                        retryable=False,
+                    )
+                yield chunk
+        except ObjectStorageError:
+            raise
+        except StorageGatewayError as exc:
+            logger.warning(
+                "object_storage_stream_failed",
+                extra={
+                    "provider": self._profile.provider,
+                    "operation": "read_chunks",
+                    "key_ref": key_ref,
+                    "error_code": exc.code.value,
+                },
+            )
+            raise ObjectStorageError(
+                exc.code, "Object storage operation failed", retryable=False
+            ) from None
 
     async def sign_download(
         self,
@@ -302,7 +354,10 @@ class S3CompatibleObjectStorageAdapter:
         self, object_key: str, *, cancellation: CancellationSignal | None = None
     ) -> None:
         await self._run(
-            "delete", object_key, lambda: self._gateway.delete_object(self._profile.bucket, object_key), cancellation
+            "delete",
+            object_key,
+            lambda: self._gateway.delete_object(self._profile.bucket, object_key),
+            cancellation,
         )
 
     async def _run(
@@ -316,7 +371,9 @@ class S3CompatibleObjectStorageAdapter:
         for attempt in range(1, self._retry.max_attempts + 1):
             if cancellation and cancellation.is_set():
                 raise ObjectStorageError(
-                    StorageErrorCode.CANCELLED, "Storage operation cancelled", retryable=False
+                    StorageErrorCode.CANCELLED,
+                    "Storage operation cancelled",
+                    retryable=False,
                 )
             try:
                 return await asyncio.wait_for(
@@ -353,7 +410,9 @@ class S3CompatibleObjectStorageAdapter:
                 except TimeoutError:
                     continue
                 raise ObjectStorageError(
-                    StorageErrorCode.CANCELLED, "Storage operation cancelled", retryable=False
+                    StorageErrorCode.CANCELLED,
+                    "Storage operation cancelled",
+                    retryable=False,
                 )
             await asyncio.sleep(self._retry.base_delay_seconds * (2 ** (attempt - 1)))
         raise AssertionError("unreachable")
@@ -365,14 +424,20 @@ async def _wait_for_cancellation(signal: CancellationSignal) -> None:
 
 
 class MinioObjectStorageAdapter(S3CompatibleObjectStorageAdapter):
-    def __init__(self, profile: StorageProfile, gateway: S3CompatibleGateway, **kwargs: object) -> None:
+    def __init__(
+        self, profile: StorageProfile, gateway: S3CompatibleGateway, **kwargs: object
+    ) -> None:
         if profile.provider != "minio":
             raise ValueError("MinIO adapter requires provider=minio")
         super().__init__(profile, gateway, **kwargs)
 
 
 class AliyunOssObjectStorageAdapter(S3CompatibleObjectStorageAdapter):
-    def __init__(self, profile: StorageProfile, gateway: S3CompatibleGateway, **kwargs: object) -> None:
+    def __init__(
+        self, profile: StorageProfile, gateway: S3CompatibleGateway, **kwargs: object
+    ) -> None:
         if profile.provider != "aliyun_oss" or not profile.region:
-            raise ValueError("Aliyun OSS adapter requires provider=aliyun_oss and region")
+            raise ValueError(
+                "Aliyun OSS adapter requires provider=aliyun_oss and region"
+            )
         super().__init__(profile, gateway, **kwargs)
