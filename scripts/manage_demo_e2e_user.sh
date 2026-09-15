@@ -43,6 +43,12 @@ user_id="$({
   docker exec "$container" "$kcadm" get users -r "$realm" \
     -q "username=$username" --fields id,username
 } | python3 -c 'import json,sys; rows=json.load(sys.stdin); print(rows[0]["id"] if rows else "")')"
+if [[ -z "$user_id" ]]; then
+  user_id="$({
+    docker exec "$container" "$kcadm" get users -r "$realm" \
+      -q "email=$email" --fields id,username
+  } | python3 -c 'import json,sys; rows=json.load(sys.stdin); print(rows[0]["id"] if rows else "")')"
+fi
 
 if [[ "$action" == "delete" ]]; then
   if [[ -n "$user_id" ]]; then
@@ -60,7 +66,15 @@ if [[ -z "$user_id" ]]; then
   docker exec "$container" "$kcadm" create users -r "$realm" \
     -s "username=$username" -s "email=$email" \
     -s firstName=M1 -s lastName=E2E -s enabled=true >/dev/null
+  user_id="$({
+    docker exec "$container" "$kcadm" get users -r "$realm" \
+      -q "email=$email" --fields id
+  } | python3 -c 'import json,sys; rows=json.load(sys.stdin); print(rows[0]["id"] if rows else "")')"
+fi
+if [[ -z "$user_id" ]]; then
+  echo "E2E user lookup failed after create: $email" >&2
+  exit 1
 fi
 docker exec "$container" "$kcadm" set-password -r "$realm" \
-  --username "$username" --new-password "$E2E_PASSWORD" --temporary=false
+  --userid "$user_id" --new-password "$E2E_PASSWORD" --temporary=false
 echo "$environment E2E user ready: $username"

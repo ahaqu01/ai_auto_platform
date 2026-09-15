@@ -22,7 +22,7 @@ test('Keycloak authorization code, BFF cookie, protected API and logout', async 
   })
   expect(session.status).toBe(200)
   expect(session.body.authenticated).toBe(true)
-  expect(session.body.user.email).toBe('m1-e2e@example.test')
+  expect(session.body.user.email).toBe(process.env.E2E_EMAIL ?? 'm1-e2e@example.test')
 
   const cookies = await context.cookies()
   const bffCookie = cookies.find((cookie) => cookie.name === 'platform_session')

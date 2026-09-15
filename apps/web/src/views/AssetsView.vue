@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ApiError, platformApi, type Organization, type Project } from '../platform'
+import { ApiError, platformApi, type Artifact, type Organization, type Project } from '../platform'
 import { UploadController } from '../upload'
 
 const organizations = ref<Organization[]>([])
 const projects = ref<Project[]>([])
+const artifacts = ref<Artifact[]>([])
+const selectedArtifact = ref<Artifact | null>(null)
+const downloadingId = ref('')
 const organizationId = ref('')
 const projectId = ref('')
 const selectedFile = ref<File | null>(null)
@@ -20,12 +23,22 @@ function describe(cause: unknown): string {
   return cause instanceof Error ? cause.message : '加载失败'
 }
 
+async function loadArtifacts(): Promise<void> {
+  artifacts.value = []
+  selectedArtifact.value = null
+  if (!organizationId.value || !projectId.value) return
+  try {
+    artifacts.value = (await platformApi.listArtifacts(organizationId.value, projectId.value)).items
+  } catch (cause) { pageError.value = describe(cause) }
+}
+
 async function loadProjects(): Promise<void> {
   projectId.value = ''
-  if (!organizationId.value) { projects.value = []; return }
+  if (!organizationId.value) { projects.value = []; await loadArtifacts(); return }
   try {
     projects.value = await platformApi.listProjects(organizationId.value)
     projectId.value = activeProjects.value[0]?.id ?? ''
+    await loadArtifacts()
   } catch (cause) { pageError.value = describe(cause) }
 }
 
@@ -33,7 +46,10 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     organizations.value = await platformApi.listOrganizations()
-    organizationId.value = organizations.value[0]?.id ?? ''
+    const saved = localStorage.getItem('platform.organization')
+    organizationId.value = organizations.value.some((item) => item.id === saved)
+      ? saved ?? ''
+      : organizations.value[0]?.id ?? ''
     await loadProjects()
   } catch (cause) { pageError.value = describe(cause) }
   finally { loading.value = false }
@@ -50,9 +66,33 @@ function choose(event: Event): void {
 async function start(): Promise<void> {
   if (!selectedFile.value) return
   await upload.start(organizationId.value, projectId.value, selectedFile.value)
+  if (upload.phase === 'COMPLETED') await loadArtifacts()
+}
+
+async function showDetails(artifact: Artifact): Promise<void> {
+  pageError.value = ''
+  try { selectedArtifact.value = await platformApi.getArtifact(organizationId.value, projectId.value, artifact.id) }
+  catch (cause) { pageError.value = describe(cause) }
+}
+
+async function download(artifact: Artifact): Promise<void> {
+  downloadingId.value = artifact.id
+  pageError.value = ''
+  try {
+    const signed = await platformApi.createArtifactDownloadUrl(organizationId.value, projectId.value, artifact.id)
+    window.location.assign(signed.url)
+  } catch (cause) { pageError.value = describe(cause) }
+  finally { downloadingId.value = '' }
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MiB`
 }
 
 watch(organizationId, loadProjects)
+watch(projectId, loadArtifacts)
 onMounted(load)
 </script>
 
@@ -96,6 +136,31 @@ onMounted(load)
           <div><dt>资产状态</dt><dd>{{ upload.artifact?.status ?? '—' }}</dd></div>
         </dl>
         <p class="security-note">预签名 URL 仅保存在当前任务内存中，不写入 localStorage、日志或页面文本。</p>
+      </article>
+    </section>
+
+    <section v-if="!loading" class="panel workspace-panel asset-library">
+      <div class="panel-heading">
+        <div><span class="panel-label">ARTIFACTS</span><h2>项目资产</h2></div>
+        <button class="button action-secondary" type="button" :disabled="!projectId" @click="loadArtifacts">刷新</button>
+      </div>
+      <div class="data-list">
+        <div v-for="artifact in artifacts" :key="artifact.id" class="data-row artifact-row" data-testid="artifact-row">
+          <div class="row-main"><strong>{{ artifact.display_name }}</strong><span>{{ formatSize(artifact.size_bytes) }} · {{ artifact.integrity_status }}</span></div>
+          <span class="status-chip" :class="artifact.status.toLowerCase()">{{ artifact.status === 'AVAILABLE' ? '可用' : artifact.status }}</span>
+          <button class="text-action" type="button" @click="showDetails(artifact)">详情</button>
+          <button class="text-action" type="button" :disabled="artifact.status !== 'AVAILABLE' || downloadingId === artifact.id" @click="download(artifact)">下载</button>
+        </div>
+        <p v-if="!artifacts.length" class="empty-state">当前项目暂无资产</p>
+      </div>
+      <article v-if="selectedArtifact" class="artifact-detail" data-testid="artifact-detail">
+        <strong>{{ selectedArtifact.display_name }}</strong>
+        <dl class="upload-facts">
+          <div><dt>资产状态</dt><dd>{{ selectedArtifact.status }}</dd></div>
+          <div><dt>完整性</dt><dd>{{ selectedArtifact.integrity_status }}</dd></div>
+          <div><dt>安全扫描</dt><dd>{{ selectedArtifact.security_scan_status ?? '—' }}</dd></div>
+          <div><dt>SHA-256</dt><dd>{{ selectedArtifact.verified_sha256 ?? selectedArtifact.expected_sha256 ?? '—' }}</dd></div>
+        </dl>
       </article>
     </section>
   </div>

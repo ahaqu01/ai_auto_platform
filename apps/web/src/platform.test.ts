@@ -3,11 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { authenticatedFetch } = vi.hoisted(() => ({ authenticatedFetch: vi.fn() }))
 vi.mock('./auth', () => ({ authenticatedFetch }))
 
-import { ApiError, platformApi } from './platform'
+import { ApiError, platformApi, requestId } from './platform'
 
 beforeEach(() => {
   authenticatedFetch.mockReset()
   vi.stubGlobal('crypto', { randomUUID: () => 'request-id' })
+})
+
+describe('requestId', () => {
+  it('creates a UUID when randomUUID is unavailable on a trusted-LAN HTTP origin', () => {
+    vi.stubGlobal('crypto', {})
+    expect(requestId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+  })
 })
 
 describe('platformApi', () => {

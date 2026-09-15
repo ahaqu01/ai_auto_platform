@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const api = vi.hoisted(() => ({ listOrganizations: vi.fn(), listProjects: vi.fn() }))
+const api = vi.hoisted(() => ({ listOrganizations: vi.fn(), listProjects: vi.fn(), listArtifacts: vi.fn(), getArtifact: vi.fn(), createArtifactDownloadUrl: vi.fn() }))
 const start = vi.hoisted(() => vi.fn())
 vi.mock('../platform', () => ({
   platformApi: api,
@@ -17,8 +17,12 @@ vi.mock('../upload', () => ({
 import AssetsView from './AssetsView.vue'
 
 beforeEach(() => {
+  localStorage.clear()
   start.mockReset().mockResolvedValue(undefined)
   api.listOrganizations.mockReset().mockResolvedValue([{ id: 'o1', name: 'Alpha' }])
+  api.listArtifacts.mockReset().mockResolvedValue({ items: [], next_cursor: null })
+  api.getArtifact.mockReset()
+  api.createArtifactDownloadUrl.mockReset()
   api.listProjects.mockReset().mockResolvedValue([
     { id: 'p1', organization_id: 'o1', code: 'active', name: 'Active', status: 'ACTIVE', version: 1 },
     { id: 'p2', organization_id: 'o1', code: 'old', name: 'Archived', status: 'ARCHIVED', version: 1 },
