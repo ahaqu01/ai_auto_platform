@@ -53,9 +53,10 @@ from platform_api.modules.artifact.storage import (
     ObjectStoragePort,
     StorageErrorCode,
 )
+from platform_api.modules.artifact.storage_runtime import build_object_storage
 from platform_api.modules.organization.domain import OrganizationRole
 from platform_api.modules.project.domain import ProjectRole, ProjectStatus
-from platform_api.settings import get_settings
+from platform_api.settings import Settings, get_settings
 
 router = APIRouter(
     prefix="/api/v1/organizations/{organization_id}/projects/{project_id}/upload-sessions",
@@ -65,9 +66,11 @@ router = APIRouter(
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
 
-def get_object_storage() -> ObjectStoragePort | None:
-    """Deployment composition hook; no unsafe default network client is installed."""
-    return None
+def get_object_storage(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ObjectStoragePort | None:
+    """Fail-closed deployment composition for the pinned storage gateway."""
+    return build_object_storage(settings)
 
 
 Storage = Annotated[ObjectStoragePort | None, Depends(get_object_storage)]

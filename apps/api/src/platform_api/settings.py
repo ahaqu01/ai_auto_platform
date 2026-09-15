@@ -5,6 +5,7 @@ from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import ParseResult, parse_qs, urlparse
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from platform_api.common.public_network import is_public_hostname_candidate
@@ -162,6 +163,7 @@ def _valid_endpoint(value: str, *, allowed_schemes: set[str]) -> bool:
         and not parsed.fragment
     )
 
+
 def _valid_bff_endpoints(public_origin: str, callback_url: str) -> bool:
     origin = _parse_url(public_origin)
     callback = _parse_url(callback_url)
@@ -179,7 +181,6 @@ def _valid_bff_endpoints(public_origin: str, callback_url: str) -> bool:
         and not callback.query
         and not callback.fragment
     )
-
 
 
 class Settings(BaseSettings):
@@ -206,9 +207,14 @@ class Settings(BaseSettings):
     bff_callback_url: str = "http://testserver/auth/callback"
     bff_cookie_name: str = "platform_session"
     bff_session_ttl_seconds: int = 28800
+    oss_provider: Literal["minio", "aliyun_oss"] = "minio"
+    oss_region: str = "us-east-1"
     oss_public_endpoint: str | None = None
     oss_internal_endpoint: str | None = None
     oss_bucket: str | None = None
+    oss_access_key_id: SecretStr | None = None
+    oss_access_key_secret: SecretStr | None = None
+    oss_session_token: SecretStr | None = None
     upload_max_file_bytes: int = 20 * 1024**3
     upload_max_active_per_organization: int = 20
     upload_max_reserved_bytes_per_organization: int = 100 * 1024**3
@@ -235,6 +241,13 @@ class Settings(BaseSettings):
             "bff_callback_url": self.bff_callback_url,
             "oss_internal_endpoint": self.oss_internal_endpoint,
             "oss_bucket": self.oss_bucket,
+            "oss_region": self.oss_region,
+            "oss_access_key_id": self.oss_access_key_id.get_secret_value()
+            if self.oss_access_key_id
+            else None,
+            "oss_access_key_secret": self.oss_access_key_secret.get_secret_value()
+            if self.oss_access_key_secret
+            else None,
         }
         invalid = {
             name for name, value in required.items() if not value or not value.strip()

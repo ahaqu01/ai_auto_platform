@@ -23,6 +23,10 @@ def deployment_settings(**overrides: str) -> dict[str, str]:
         "oss_public_endpoint": "https://objects.example.com",
         "oss_internal_endpoint": "http://minio.internal:9000",
         "oss_bucket": "platform-assets",
+        "oss_provider": "minio",
+        "oss_region": "us-east-1",
+        "oss_access_key_id": "test-access-id",
+        "oss_access_key_secret": "test-access-secret",
     }
     values.update(overrides)
     return values
@@ -102,9 +106,7 @@ def test_deployment_requires_explicit_bff_configuration(field: str) -> None:
 )
 def test_deployment_rejects_invalid_bff_callback(callback_url: str) -> None:
     with pytest.raises(RuntimeError, match="bff_callback_url"):
-        Settings(
-            **deployment_settings(bff_callback_url=callback_url), _env_file=None
-        )
+        Settings(**deployment_settings(bff_callback_url=callback_url), _env_file=None)
 
 
 def test_environment_example_matches_runtime_configuration_names() -> None:
@@ -128,6 +130,11 @@ def test_environment_example_matches_runtime_configuration_names() -> None:
         "BFF_CLIENT_SECRET",
         "BFF_PUBLIC_ORIGIN",
         "BFF_CALLBACK_URL",
+        "OSS_PROVIDER",
+        "OSS_REGION",
+        "OSS_ACCESS_KEY_ID",
+        "OSS_ACCESS_KEY_SECRET",
+        "OSS_SESSION_TOKEN",
         "OSS_PUBLIC_ENDPOINT",
         "OSS_INTERNAL_ENDPOINT",
         "OSS_BUCKET",

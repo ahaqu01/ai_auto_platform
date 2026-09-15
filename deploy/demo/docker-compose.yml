@@ -93,8 +93,14 @@ services:
       BFF_CLIENT_SECRET: bff-local-demo-only
       BFF_PUBLIC_ORIGIN: http://192.168.1.129:8080
       BFF_CALLBACK_URL: http://192.168.1.129:8080/auth/callback
+      OSS_PROVIDER: minio
+      OSS_REGION: us-east-1
       OSS_INTERNAL_ENDPOINT: http://minio:9000
+      OSS_PUBLIC_ENDPOINT: http://192.168.1.129:8080
       OSS_BUCKET: demo
+      OSS_ACCESS_KEY_ID: minioadmin
+      OSS_ACCESS_KEY_SECRET: minioadmin-local-demo-only
+      ALLOW_INSECURE_PRIVATE_SERVICE_TRANSPORT: "true"
     depends_on:
       migrate:
         condition: service_completed_successfully
