@@ -61,7 +61,7 @@ const navigation = [
           <strong>多模型 · 多芯片 · 真实设备验证</strong>
         </div>
         <div class="topbar-actions">
-          <span class="phase-badge">M2 · Assets Ready</span>
+          <span class="phase-badge">M2 · Code Ready</span>
           <div v-if="session.user.value" class="session-actions">
             <div class="user-avatar" aria-label="当前用户">{{ session.user.value.displayName.slice(0, 2) }}</div>
             <button type="button" class="button button-secondary" @click="session.logout()">退出</button>
