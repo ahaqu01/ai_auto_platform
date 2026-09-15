@@ -2,7 +2,7 @@
 
 > 日期：2026-09-15  
 > 范围：安全 S3 兼容 Gateway、MinIO/OSS 运行时装配  
-> 状态：IMPLEMENTED / ACCEPTANCE IN PROGRESS
+> 状态：CODE / RUNTIME / MINIO ACCEPTED；OSS CREDENTIAL ROTATION EVIDENCE PENDING
 
 ## 实现
 
@@ -28,3 +28,7 @@
 本任务验收安全 Gateway 和运行时装配，不替代 M2-CLOSE-02 浏览器 MinIO E2E、M2-CLOSE-03 OSS Staging E2E、三档文件矩阵、调度或 M2 总签。
 
 阿里云真实兼容性和旧 Key 废止证据仍需单独验收，不允许用 MinIO 结果替代。
+
+## 版本与验收
+
+实现提交 `ea748b5`，验收修复提交 `efe20f3`；GitHub Actions run `34964313687` 为 success。真实 MinIO Gateway 闭环和无真实凭据 OSS HTTPS transport 探测通过，详见验收记录。
