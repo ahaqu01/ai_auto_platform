@@ -27,5 +27,7 @@ describe('App', () => {
     expect(navigation.text()).toContain('设备与部署')
     expect(navigation.text()).toContain('系统管理')
     expect(wrapper.text()).toContain('内部演示环境')
+    expect(wrapper.text()).toContain('创建账号')
+    expect(wrapper.text()).toContain('登录')
   })
 })

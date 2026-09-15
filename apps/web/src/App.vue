@@ -66,9 +66,10 @@ const navigation = [
             <div class="user-avatar" aria-label="当前用户">{{ session.user.value.displayName.slice(0, 2) }}</div>
             <button type="button" class="button button-secondary" @click="session.logout()">退出</button>
           </div>
-          <button v-else type="button" class="button button-primary" :disabled="session.loading.value" @click="session.login()">
-            登录
-          </button>
+          <div v-else class="session-actions">
+            <button type="button" class="button button-secondary" :disabled="session.loading.value" @click="session.register()">创建账号</button>
+            <button type="button" class="button button-primary" :disabled="session.loading.value" @click="session.login()">登录</button>
+          </div>
         </div>
       </header>
       <main class="app-content">

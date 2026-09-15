@@ -176,6 +176,12 @@ class BffService:
         self.logout_endpoint = f"{settings.keycloak_internal_issuer or settings.keycloak_issuer}/protocol/openid-connect/logout"
 
     async def authorization_url(self, return_to: str) -> str:
+        return await self._oidc_url(return_to, "auth")
+
+    async def registration_url(self, return_to: str) -> str:
+        return await self._oidc_url(return_to, "registrations")
+
+    async def _oidc_url(self, return_to: str, endpoint: str) -> str:
         verifier = secrets.token_urlsafe(64)
         challenge = (
             base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
@@ -196,7 +202,7 @@ class BffService:
                 "code_challenge_method": "S256",
             }
         )
-        return f"{self.settings.keycloak_issuer}/protocol/openid-connect/auth?{query}"
+        return f"{self.settings.keycloak_issuer}/protocol/openid-connect/{endpoint}?{query}"
 
     async def complete_login(self, code: str, state: str) -> tuple[BrowserSession, str]:
         login = await self.store.consume_login(state)

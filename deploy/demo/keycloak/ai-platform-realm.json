@@ -3,7 +3,11 @@
   "enabled": true,
   "displayName": "AI Auto Platform",
   "sslRequired": "none",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "passwordPolicy": "length(12) and digits(1) and lowerCase(1) and upperCase(1) and specialChars(1)",
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "roles": {

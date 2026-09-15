@@ -5049,6 +5049,47 @@
         ]
       }
     },
+    "/auth/register": {
+      "get": {
+        "operationId": "register_auth_register_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "title": "Return To",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/auth/session": {
       "get": {
         "operationId": "browser_session_auth_session_get",
