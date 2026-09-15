@@ -1,9 +1,9 @@
 # Current Status
 
 > Owner：交付负责人 / 产品 / 技术 / 安全 / QA
-> Updated：2026-09-02
+> Updated：2026-09-15
 > Git baseline：M1 验收标签 `m1-accepted` → `c81a005`
-> Database migration：`20260911_10` (head)
+> Database migration：`20260915_11` (head)
 > Status：M1 ACCEPTED / M2 STARTED
 
 ## 当前事实
@@ -52,3 +52,6 @@ M2-04 Multipart 已通过验收：实现提交 `eb78d1a`，RLS 验收修复 `b4b
 M2-05 完成与强校验已通过验收：实现提交 `1155aae`，GitHub Actions run `34557468178` 为 success；当前进入 M2-06。
 
 M2-06 资产访问与授权已通过验收：实现提交 `5cf93b6`，覆盖率修复 `4715aa0`，GitHub Actions run `34559105007` 为 success；当前进入 M2-07。
+
+
+M2-07 清理与对账已通过验收：实现提交 `38a4e90`，迁移头 `20260915_11`，GitHub Actions run `34926952005` 为 success。过期会话、遗留 Multipart、DELETING 资产、缺失对象、孤儿对象、失败退避、SYSTEM 审计与 Outbox 门禁通过；当前进入 M2-08。
