@@ -55,3 +55,6 @@ M2-06 资产访问与授权已通过验收：实现提交 `5cf93b6`，覆盖率�
 
 
 M2-07 清理与对账已通过验收：实现提交 `38a4e90`，迁移头 `20260915_11`，GitHub Actions run `34927350605` 为 success。过期会话、遗留 Multipart、DELETING 资产、缺失对象、孤儿对象、失败退避、SYSTEM 审计与 Outbox 门禁通过；当前进入 M2-08。
+
+
+M2-08 Web 上传闭环已完成代码与 CI 验收：实现提交 `faf08b4`，Web 分块摘要、Multipart、进度、暂停/恢复、取消和失败重试门禁通过。真实 MinIO/阿里云 OSS 浏览器 Staging E2E 与 1 KB/100 MB/1 GB 样本仍待安全环境执行；M2 总体验收和 `m2-accepted` 标签不得提前签署。
