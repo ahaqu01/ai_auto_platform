@@ -18,6 +18,20 @@ export type Project = {
   version: number
 }
 
+export type UploadSession = {
+  id: string
+  status: 'PENDING_UPLOAD' | 'UPLOADING' | 'COMPLETING' | 'COMPLETED' | 'ABORTED' | 'EXPIRED' | 'FAILED'
+  display_name: string
+  expected_size: number
+  expected_sha256: string
+  declared_content_type: string
+  expires_at: string
+  version: number
+}
+export type SignedPart = { part_number: number; url: string; expires_in_seconds: number }
+export type RegisteredPart = { part_number: number; etag: string; size_bytes: number; created_at: string; updated_at: string }
+export type Artifact = { id: string; display_name: string; size_bytes: number; status: 'VERIFYING' | 'AVAILABLE' | 'QUARANTINED' | 'FAILED' | 'DELETING' | 'DELETED'; integrity_status: 'VERIFIED' | 'MISMATCH'; version: number }
+export type UploadCreate = { display_name: string; size_bytes: number; sha256: string; content_type: string }
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
     super(message)
@@ -48,5 +62,37 @@ export const platformApi = {
   listProjects: (organizationId: string) => request<Project[]>(`/api/v1/organizations/${organizationId}/projects?limit=100`),
   createProject: (organizationId: string, payload: { code: string; name: string; description?: string }) => request<Project>(`/api/v1/organizations/${organizationId}/projects`, json('POST', payload, { 'Idempotency-Key': crypto.randomUUID() })),
   updateProject: (organizationId: string, project: Project, name: string) => request<Project>(`/api/v1/organizations/${organizationId}/projects/${project.id}`, json('PATCH', { name }, { 'If-Match': `"${project.version}"` })),
+  createUploadSession: (organizationId: string, projectId: string, payload: UploadCreate) => request<UploadSession>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions`, json('POST', payload, { 'Idempotency-Key': crypto.randomUUID() })),
+  getUploadSession: (organizationId: string, projectId: string, uploadId: string) => request<UploadSession>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}`),
+  signUploadParts: (organizationId: string, projectId: string, uploadId: string, partNumbers: number[]) => request<SignedPart[]>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts:sign`, json('POST', { part_numbers: partNumbers, expires_in_seconds: 900 })),
+  registerUploadPart: (organizationId: string, projectId: string, uploadId: string, partNumber: number, payload: { etag: string; size_bytes: number }) => request<RegisteredPart>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts/${partNumber}`, json('PUT', payload)),
+  listUploadParts: (organizationId: string, projectId: string, uploadId: string) => request<RegisteredPart[]>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts`),
+  completeUpload: (organizationId: string, projectId: string, uploadId: string, parts: { part_number: number; etag: string }[]) => request<Artifact>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}:complete`, json('POST', { parts }, { 'Idempotency-Key': crypto.randomUUID() })),
+  cancelUpload: (organizationId: string, projectId: string, uploadId: string) => request<UploadSession>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}:cancel`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }),
   setProjectArchived: (organizationId: string, project: Project, archived: boolean) => request<Project>(`/api/v1/organizations/${organizationId}/projects/${project.id}:${archived ? 'archive' : 'restore'}`, { method: 'POST', headers: { 'If-Match': `"${project.version}"` } }),
+}
+
+export function putPresignedPart(url: string, body: Blob, signal: AbortSignal, onProgress: (loaded: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', url)
+    request.withCredentials = false
+    request.upload.onprogress = (event) => onProgress(event.loaded)
+    request.onerror = () => reject(new Error('对象存储上传失败'))
+    request.onabort = () => reject(new DOMException('上传已暂停', 'AbortError'))
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(`对象存储上传失败（HTTP ${request.status}）`))
+        return
+      }
+      const etag = request.getResponseHeader('ETag')
+      if (!etag) {
+        reject(new Error('对象存储未暴露 ETag，请检查 Bucket CORS'))
+        return
+      }
+      resolve(etag)
+    }
+    signal.addEventListener('abort', () => request.abort(), { once: true })
+    request.send(body)
+  })
 }
