@@ -9,7 +9,7 @@ test('Keycloak authorization code, BFF cookie, protected API and logout', async 
   test.skip(!username || !password, 'E2E_USERNAME and E2E_PASSWORD are required')
 
   await page.goto('/auth/login?return_to=/')
-  await expect(page.locator('#kc-page-title')).toContainText('Sign in')
+  await expect(page.locator('#kc-page-title')).toContainText('登录')
   await page.locator('#username').fill(username!)
   await page.locator('#password').fill(password!)
   await page.locator('#kc-login').click()
