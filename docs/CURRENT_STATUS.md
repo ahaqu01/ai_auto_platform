@@ -54,4 +54,4 @@ M2-05 完成与强校验已通过验收：实现提交 `1155aae`，GitHub Action
 M2-06 资产访问与授权已通过验收：实现提交 `5cf93b6`，覆盖率修复 `4715aa0`，GitHub Actions run `34559105007` 为 success；当前进入 M2-07。
 
 
-M2-07 清理与对账已通过验收：实现提交 `38a4e90`，迁移头 `20260915_11`，GitHub Actions run `34926952005` 为 success。过期会话、遗留 Multipart、DELETING 资产、缺失对象、孤儿对象、失败退避、SYSTEM 审计与 Outbox 门禁通过；当前进入 M2-08。
+M2-07 清理与对账已通过验收：实现提交 `38a4e90`，迁移头 `20260915_11`，GitHub Actions run `34927350605` 为 success。过期会话、遗留 Multipart、DELETING 资产、缺失对象、孤儿对象、失败退避、SYSTEM 审计与 Outbox 门禁通过；当前进入 M2-08。
