@@ -1,8 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mkdir, rm, truncate, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const runId = process.env.E2E_RUN_ID ?? `local-${Date.now()}`
 const organizationName = `M2-CLOSE-02-${runId}`
 const projectCode = `m2-close-02-${runId}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 48)
+const sampleDir = join(tmpdir(), `m2-close-02-${runId}`)
+
+test.afterEach(async () => { await rm(sampleDir, { recursive: true, force: true }) })
 
 async function login(page: Page): Promise<void> {
   const username = process.env.E2E_USERNAME
@@ -25,8 +31,16 @@ async function waitForUpload(page: Page): Promise<void> {
   await expect(page.locator('.upload-phase')).toHaveText('正在上传', { timeout: 30_000 })
 }
 
+async function selectSparseFile(page: Page, name: string, size: number): Promise<void> {
+  await mkdir(sampleDir, { recursive: true })
+  const filePath = join(sampleDir, name)
+  await writeFile(filePath, '')
+  await truncate(filePath, size)
+  await page.getByLabel('选择上传文件').setInputFiles(filePath)
+}
+
 test('真实 MinIO：暂停恢复、取消、重试、校验、详情和授权下载', async ({ page, context }, testInfo) => {
-  test.setTimeout(180_000)
+  test.setTimeout(900_000)
   await login(page)
 
   await page.getByLabel('组织名称').fill(organizationName)
@@ -50,7 +64,7 @@ test('真实 MinIO：暂停恢复、取消、重试、校验、详情和授权�
     uploadThroughput: 256 * 1024,
     connectionType: 'cellular3g',
   })
-  await selectFile(page, `pause-${runId}.bin`, 9 * 1024 * 1024)
+  await selectSparseFile(page, `pause-100mb-${runId}.bin`, 100 * 1024 * 1024)
   await page.getByRole('button', { name: '开始上传' }).click()
   await waitForUpload(page)
   await page.getByRole('button', { name: '暂停', exact: true }).click()
@@ -86,11 +100,17 @@ test('真实 MinIO：暂停恢复、取消、重试、校验、详情和授权�
     await route.continue()
   })
   const finalName = `retry-${runId}.bin`
-  await selectFile(page, finalName, 1024 * 1024)
+  await selectFile(page, finalName, 1024)
   await page.getByRole('button', { name: '开始上传' }).click()
   await expect(page.locator('.upload-phase')).toHaveText('上传完成', { timeout: 60_000 })
   expect(putAttempts).toBeGreaterThanOrEqual(2)
   await page.unroute('**/*')
+
+  const largeName = `complete-1gb-${runId}.bin`
+  await selectSparseFile(page, largeName, 1024 * 1024 * 1024)
+  await page.getByRole('button', { name: '开始上传' }).click()
+  await expect(page.locator('.upload-phase')).toHaveText('上传完成', { timeout: 600_000 })
+  await expect(page.getByTestId('artifact-row').filter({ hasText: largeName })).toContainText('可用')
 
   const row = page.getByTestId('artifact-row').filter({ hasText: finalName })
   await expect(row).toContainText('可用')
