@@ -61,3 +61,5 @@ M2-08 Web 上传闭环已完成代码与 CI 验收：实现提交 `faf08b4`，We
 
 
 M2-CLOSE-01 安全存储 Gateway 已达到 CODE/RUNTIME/MINIO ACCEPTED：实现提交 `ea748b5`、验收修复 `efe20f3`、GitHub Actions run `34964313687` success。固定 peer HTTPS transport、MinIO 运行时和真实 Multipart/读取/列举/下载/删除证据齐全；此前暴露的 OSS 长期 Key 未复用，但阿里云侧禁用/删除证明尚未取得，因此保持 CREDENTIAL ROTATION EVIDENCE PENDING，M2 仍不得总签。
+
+M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、矩阵提交 `b3d03ba`、中文认证断言提交 `d466b49`，GitHub Actions run `34970847263` success。真实 Chromium 已通过中文登录、组织/项目、1 KB/100 MB/1 GB 样本、暂停/恢复、取消、故障重试、强校验、资产详情及授权下载；临时用户、组织、会话、资产与对象均已清理。Demo 数据库已升级至 `20260915_11`，全栈服务 healthy。M2-CLOSE-03 阿里云 OSS Staging 证据与凭据轮换证明仍未完成，M2 不得总签。
