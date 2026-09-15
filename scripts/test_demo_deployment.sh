@@ -65,4 +65,8 @@ grep -q '.demo-cache/wheels' "$api_dockerfile" || fail "offline wheel cache miss
 grep -q 'COPY apps/web/dist' "$web_dockerfile" || fail "tested Web dist copy missing"
 [[ -x "${repo_root}/scripts/test_restart_recovery.sh" ]] || fail "restart recovery test missing or not executable"
 
+grep -q '"internationalizationEnabled": true' deploy/demo/keycloak/ai-platform-realm.json
+grep -q '"defaultLocale": "zh-CN"' deploy/demo/keycloak/ai-platform-realm.json
+grep -q '"supportedLocales": \["zh-CN"\]' deploy/demo/keycloak/ai-platform-realm.json
+
 echo "PASS: demo deployment reliability contract"
