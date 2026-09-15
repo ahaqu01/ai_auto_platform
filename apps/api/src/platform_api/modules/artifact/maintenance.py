@@ -82,8 +82,13 @@ class ArtifactMaintenanceService:
                                     UploadSessionModel.expires_at <= now,
                                 ),
                                 and_(
-                                    UploadSessionModel.status
-                                    == UploadSessionStatus.EXPIRED,
+                                    UploadSessionModel.status.in_(
+                                        {
+                                            UploadSessionStatus.EXPIRED,
+                                            UploadSessionStatus.ABORTED,
+                                            UploadSessionStatus.FAILED,
+                                        }
+                                    ),
                                     UploadSessionModel.storage_upload_id.is_not(None),
                                 ),
                             ),

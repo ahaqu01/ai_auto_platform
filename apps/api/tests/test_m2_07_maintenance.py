@@ -261,7 +261,17 @@ async def test_failures_are_safe_retryable_and_not_false_success(setup):
 
 
 @pytest.mark.asyncio
-async def test_not_found_delete_and_abort_are_idempotent_success(setup):
+@pytest.mark.parametrize(
+    "terminal_status",
+    [
+        UploadSessionStatus.EXPIRED,
+        UploadSessionStatus.ABORTED,
+        UploadSessionStatus.FAILED,
+    ],
+)
+async def test_not_found_delete_and_abort_are_idempotent_success(
+    setup, terminal_status
+):
     factory, storage, now, ids = setup
     exp_key = "v1/o/" + "d" * 32
     del_key = "v1/o/" + "e" * 32
@@ -269,7 +279,7 @@ async def test_not_found_delete_and_abort_are_idempotent_success(setup):
         ids,
         now,
         exp_key,
-        status=UploadSessionStatus.EXPIRED,
+        status=terminal_status,
         expired=True,
         remote="gone",
     )
