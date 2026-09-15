@@ -86,13 +86,13 @@ services:
       APP_VERSION: 0.1.0
       DATABASE_URL: postgresql+psycopg://platform:demo-local-only@postgres:5432/platform
       REDIS_URL: redis://redis:6379/0
-      KEYCLOAK_ISSUER: http://127.0.0.1:8080/auth/realms/ai-platform
+      KEYCLOAK_ISSUER: http://192.168.1.129:8080/auth/realms/ai-platform
       KEYCLOAK_INTERNAL_ISSUER: http://keycloak:8080/auth/realms/ai-platform
       OIDC_AUDIENCE: platform-api
       BFF_CLIENT_ID: platform-bff
       BFF_CLIENT_SECRET: bff-local-demo-only
-      BFF_PUBLIC_ORIGIN: http://127.0.0.1:8080
-      BFF_CALLBACK_URL: http://127.0.0.1:8080/auth/callback
+      BFF_PUBLIC_ORIGIN: http://192.168.1.129:8080
+      BFF_CALLBACK_URL: http://192.168.1.129:8080/auth/callback
       OSS_INTERNAL_ENDPOINT: http://minio:9000
       OSS_BUCKET: demo
     depends_on:
@@ -140,7 +140,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin-local-demo-only
       KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME: http://127.0.0.1:8080/auth
+      KC_HOSTNAME: http://192.168.1.129:8080/auth
       KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./keycloak/ai-platform-realm.json:/opt/keycloak/data/import/ai-platform-realm.json:ro

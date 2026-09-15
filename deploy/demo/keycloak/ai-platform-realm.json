@@ -32,8 +32,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "redirectUris": ["http://127.0.0.1:8080/auth/callback"],
-      "webOrigins": ["http://127.0.0.1:8080"],
+      "redirectUris": ["http://127.0.0.1:8080/auth/callback", "http://192.168.1.129:8080/auth/callback"],
+      "webOrigins": ["http://127.0.0.1:8080", "http://192.168.1.129:8080"],
       "attributes": {"pkce.code.challenge.method": "S256"},
       "protocolMappers": [
         {
