@@ -5,6 +5,7 @@ import hashlib
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol, TypeVar
 
@@ -76,6 +77,12 @@ class ObjectMetadata:
 
 
 @dataclass(frozen=True, slots=True)
+class StorageObjectRef:
+    object_key: str
+    last_modified: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class CompletedPart:
     part_number: int
     etag: str
@@ -139,6 +146,10 @@ class S3CompatibleGateway(Protocol):
 
     async def delete_object(self, bucket: str, object_key: str) -> None: ...
 
+    def list_objects(
+        self, bucket: str, prefix: str
+    ) -> AsyncIterator[StorageObjectRef]: ...
+
 
 class ObjectStoragePort(Protocol):
     async def start_multipart(
@@ -196,6 +207,10 @@ class ObjectStoragePort(Protocol):
     async def delete(
         self, object_key: str, *, cancellation: CancellationSignal | None = None
     ) -> None: ...
+
+    def list_objects(
+        self, prefix: str, *, cancellation: CancellationSignal | None = None
+    ) -> AsyncIterator[StorageObjectRef]: ...
 
 
 class S3CompatibleObjectStorageAdapter:
@@ -359,6 +374,34 @@ class S3CompatibleObjectStorageAdapter:
             lambda: self._gateway.delete_object(self._profile.bucket, object_key),
             cancellation,
         )
+
+    async def list_objects(
+        self, prefix: str, *, cancellation: CancellationSignal | None = None
+    ) -> AsyncIterator[StorageObjectRef]:
+        if prefix != "v1/o/":
+            raise ObjectStorageError(
+                StorageErrorCode.INVALID_REQUEST,
+                "Invalid storage prefix",
+                retryable=False,
+            )
+        try:
+            async for item in self._gateway.list_objects(self._profile.bucket, prefix):
+                if cancellation and cancellation.is_set():
+                    raise ObjectStorageError(
+                        StorageErrorCode.CANCELLED,
+                        "Storage operation cancelled",
+                        retryable=False,
+                    )
+                yield item
+        except ObjectStorageError:
+            raise
+        except StorageGatewayError as exc:
+            raise ObjectStorageError(
+                exc.code,
+                "Object storage operation failed",
+                retryable=exc.code
+                in {StorageErrorCode.TIMEOUT, StorageErrorCode.TEMPORARY_UNAVAILABLE},
+            ) from None
 
     async def _run(
         self,

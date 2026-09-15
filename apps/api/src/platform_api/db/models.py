@@ -146,6 +146,9 @@ class UploadSessionModel(IdMixin, TimestampMixin, Base):
         CheckConstraint(
             "reserved_bytes >= 0", name="ck_upload_sessions_reserved_bytes"
         ),
+        CheckConstraint(
+            "cleanup_attempts >= 0", name="ck_upload_sessions_cleanup_attempts"
+        ),
     )
 
     organization_id: Mapped[UUID] = mapped_column(
@@ -171,6 +174,13 @@ class UploadSessionModel(IdMixin, TimestampMixin, Base):
         DateTime(timezone=True), index=True, nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cleanup_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    cleanup_last_error: Mapped[str | None] = mapped_column(String(64))
+    cleanup_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     version: Mapped[int] = mapped_column(
         Integer, default=1, server_default="1", nullable=False
     )
@@ -202,6 +212,7 @@ class ArtifactModel(IdMixin, TimestampMixin, Base):
         UniqueConstraint("upload_session_id", name="uq_artifacts_upload_session_id"),
         UniqueConstraint("object_key", name="uq_artifacts_object_key"),
         CheckConstraint("size_bytes >= 0", name="ck_artifacts_size"),
+        CheckConstraint("cleanup_attempts >= 0", name="ck_artifacts_cleanup_attempts"),
     )
     upload_session_id: Mapped[UUID] = mapped_column(
         ForeignKey("upload_sessions.id", ondelete="RESTRICT"), nullable=False
@@ -229,6 +240,14 @@ class ArtifactModel(IdMixin, TimestampMixin, Base):
     )
     status: Mapped[ArtifactStatus] = mapped_column(
         Enum(ArtifactStatus, native_enum=False, length=24), nullable=False
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cleanup_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    cleanup_last_error: Mapped[str | None] = mapped_column(String(64))
+    cleanup_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
     )
     version: Mapped[int] = mapped_column(
         Integer, default=1, server_default="1", nullable=False
