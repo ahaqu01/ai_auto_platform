@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import http.client
+import os
 from urllib.parse import urlparse
 
 from platform_api.modules.artifact.s3_gateway import SafeS3Gateway
@@ -18,11 +19,11 @@ async def main() -> None:
     key = "v1/o/close01-test"
     gateway = SafeS3Gateway(
         provider="minio",
-        internal_endpoint="http://minio:9000",
-        public_endpoint="http://web",
-        region="us-east-1",
-        access_key_id="minioadmin",
-        access_key_secret="minioadmin-local-demo-only",
+        internal_endpoint=os.environ["OSS_INTERNAL_ENDPOINT"],
+        public_endpoint=os.environ["OSS_PUBLIC_ENDPOINT"],
+        region=os.environ["OSS_REGION"],
+        access_key_id=os.environ["OSS_ACCESS_KEY_ID"],
+        access_key_secret=os.environ["OSS_ACCESS_KEY_SECRET"],
         allow_insecure_private_transport=True,
     )
     try:
