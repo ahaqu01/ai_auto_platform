@@ -76,3 +76,5 @@ M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2
 | M2-04～08 | NOT STARTED | 必须按计划顺序实施和逐项验收 |
 
 | M2-05 | ACCEPTED | Multipart 完成、完整流式 SHA-256、大小/摘要强校验、资产隔离及 RLS/CI 通过 |
+
+| M2-06 | ACCEPTED | 资产列表/详情、短期下载授权、软删除、跨租户与归档语义及 CI 通过 |

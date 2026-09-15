@@ -50,3 +50,5 @@ M2-03 验收见 [上传会话验收记录](acceptance/M2-03-上传会话-验收�
 M2-04 Multipart 已通过验收：实现提交 `eb78d1a`，RLS 验收修复 `b4b89d0`，GitHub Actions run `34555956515` 为 success；当前进入 M2-05。
 
 M2-05 完成与强校验已通过验收：实现提交 `1155aae`，GitHub Actions run `34557468178` 为 success；当前进入 M2-06。
+
+M2-06 资产访问与授权已通过验收：实现提交 `5cf93b6`，覆盖率修复 `4715aa0`，GitHub Actions run `34559105007` 为 success；当前进入 M2-07。
