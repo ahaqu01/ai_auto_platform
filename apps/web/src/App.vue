@@ -10,7 +10,7 @@ onMounted(() => session.loadSession())
 const navigation = [
   { label: '工作台', icon: '⌂', to: '/' },
   { label: '组织与项目', icon: '◇', to: '/workspace', status: '可用' },
-  { label: '数据资产', to: '/assets', icon: '▤', status: '可用' },
+  { label: '数据资产', to: '/data-assets', icon: '▤', status: '可用' },
   { label: '智能标注', to: '#', icon: '⌖', status: '规划中' },
   { label: '训练中心', to: '#', icon: '↗', status: '规划中' },
   { label: '模型仓库', to: '#', icon: '⬡', status: '规划中' },

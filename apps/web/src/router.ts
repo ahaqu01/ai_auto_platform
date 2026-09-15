@@ -9,7 +9,7 @@ export default createRouter({
       component: () => import('./views/HomeView.vue'),
     },
     {
-      path: '/assets',
+      path: '/data-assets',
       name: 'assets',
       component: () => import('./views/AssetsView.vue'),
     },

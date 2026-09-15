@@ -15,7 +15,7 @@ const milestones = [
 
 const capabilities = [
   { icon: '◇', title: '组织与项目', text: '成员、角色、项目生命周期与租户隔离', state: '可操作', tone: 'ready', to: '/workspace' },
-  { icon: '▤', title: '数据资产', text: '分片上传、摘要校验、暂停恢复与资产状态', state: '可操作', tone: 'ready', to: '/assets' },
+  { icon: '▤', title: '数据资产', text: '分片上传、摘要校验、暂停恢复与资产状态', state: '可操作', tone: 'ready', to: '/data-assets' },
   { icon: '⌖', title: '数据与标注', text: '质量、版本、标注和困难样本工作流', state: '规划中', tone: 'planned', to: '' },
   { icon: '↗', title: '模型与训练', text: '实验、训练、评估与模型版本晋级', state: '规划中', tone: 'planned', to: '' },
   { icon: '⬡', title: '芯片适配', text: '转换、量化、编译与兼容矩阵', state: '规划中', tone: 'planned', to: '' },
@@ -52,7 +52,7 @@ onMounted(async () => {
         <h1>让 AI 方案走到真实设备，<br><em>并形成可验收的交付结果</em></h1>
         <p>统一组织需求、数据资产、模型、异构芯片和真实设备验证；每一步保留版本、权限、状态和证据。</p>
         <div class="welcome-actions dashboard-actions">
-          <RouterLink class="button button-primary" to="/assets">上传数据资产 <span>→</span></RouterLink>
+          <RouterLink class="button button-primary" to="/data-assets">上传数据资产 <span>→</span></RouterLink>
           <RouterLink class="button button-secondary live-button" to="/workspace">管理组织与项目</RouterLink>
           <a class="button ghost-button" href="/docs" target="_blank" rel="noreferrer">API 文档 ↗</a>
         </div>
