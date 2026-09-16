@@ -219,6 +219,12 @@ class Settings(BaseSettings):
     upload_max_active_per_organization: int = 20
     upload_max_reserved_bytes_per_organization: int = 100 * 1024**3
     upload_session_ttl_seconds: int = 24 * 60 * 60
+    artifact_maintenance_interval_seconds: int = 300
+    artifact_maintenance_timeout_seconds: int = 240
+    artifact_maintenance_batch_size: int = 100
+    artifact_orphan_grace_seconds: int = 24 * 60 * 60
+    artifact_maintenance_alert_failure_threshold: int = 1
+    artifact_maintenance_heartbeat_path: str = "/tmp/artifact-maintenance-heartbeat"
     otel_exporter_otlp_endpoint: str | None = None
     allow_insecure_private_service_transport: bool = False
 
