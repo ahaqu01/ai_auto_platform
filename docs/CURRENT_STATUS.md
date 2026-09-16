@@ -71,4 +71,5 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 - E2E 清理后 Bucket 对象数为 0。
 - RAM 管理探测返回 403，临时 Key 无 RAM 管理权限。
 - 新 Key 注入后的复验为 `1 passed (4.0m)`，API `healthy`，配置权限 `0600`，Bucket 清理后对象数为 0。
+- 全工程配置审计确认项目文件旧 Key 引用为 0；所有携带 OSS 配置的 Staging 容器均为新 Key，六个 Staging 服务全部健康；Demo 仅使用隔离的本地 MinIO 凭据。
 - 旧 Key 因其他外部服务仍在使用而按用户决定暂时保留；必须先迁移外部依赖再停用/删除。M2-CLOSE-03 尚未正式关闭，不启动 M2-CLOSE-04。

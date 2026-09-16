@@ -18,6 +18,9 @@
 - 新 RAM AccessKey（尾号 `8cg4`）已注入 Staging，配置文件权限为 `0600`，API 重建后健康状态为 `healthy`。
 - 使用新 Key 重新执行完整 Playwright 用例：`1 passed (4.0m)`；清理后 Bucket 对象数再次确认为 0。
 - 本平台已不再使用旧 Key。
+- 项目目录与受限配置目录中的旧 Key 引用数为 0。
+- 携带 OSS 配置的 Staging API、PostgreSQL、Keycloak、MinIO 容器均使用新 Key；六个 Staging 服务全部健康，Web HTTP 为 200。
+- Demo 环境继续使用隔离的本地 MinIO 凭据，不属于阿里云旧 Key 使用。
 
 ## 待关闭项
 
