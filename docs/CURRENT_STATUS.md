@@ -65,8 +65,10 @@ M2-CLOSE-01 安全存储 Gateway 已达到 CODE/RUNTIME/MINIO ACCEPTED：实现�
 M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、矩阵提交 `b3d03ba`、中文认证断言提交 `d466b49`，GitHub Actions run `34970847263` success。真实 Chromium 已通过中文登录、组织/项目、1 KB/100 MB/1 GB 样本、暂停/恢复、取消、故障重试、强校验、资产详情及授权下载；临时用户、组织、会话、资产与对象均已清理。Demo 数据库已升级至 `20260915_11`，全栈服务 healthy。M2-CLOSE-03 阿里云 OSS Staging 证据与凭据轮换证明仍未完成，M2 不得总签。
 ## M2-CLOSE-03（2026-09-16）
 
-- 结论：条件通过；真实阿里云 OSS 浏览器 E2E 已通过，旧 Key 轮换仍为关闭门槛。
+- 结论：条件通过；真实阿里云 OSS 浏览器 E2E 已通过，本平台已切换到新 Key（尾号 `8cg4`），旧 Key 废止仍为关闭门槛。
 - Bucket 私有且阻止公共访问；CORS 使用精确 Staging 来源，GET/PUT/HEAD，暴露 ETag。
 - 100 MiB 暂停恢复、取消、1 KiB 断线重试、1 GiB Multipart、AVAILABLE/VERIFIED、下载 SHA-256 均通过。
 - E2E 清理后 Bucket 对象数为 0。
 - RAM 管理探测返回 403，临时 Key 无 RAM 管理权限。
+- 新 Key 注入后的复验为 `1 passed (4.0m)`，API `healthy`，配置权限 `0600`，Bucket 清理后对象数为 0。
+- 旧 Key 因其他外部服务仍在使用而按用户决定暂时保留；必须先迁移外部依赖再停用/删除。M2-CLOSE-03 尚未正式关闭，不启动 M2-CLOSE-04。

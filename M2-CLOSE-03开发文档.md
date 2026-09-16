@@ -25,5 +25,6 @@
 
 ## 安全结论
 
-当前临时 Key 可访问目标 Bucket，但 RAM OpenAPI 明确拒绝 `ram:ListAccessKeys`，说明其没有 RAM 管理权限。由于该 Key 曾出现在对话中且控制台建议轮转，M2-CLOSE-03 在新 Key 完成替换并停用/删除旧 Key 前只能条件通过。
+2026-09-16 已创建新的 RAM AccessKey（文档仅记录尾号 `8cg4`），通过受限 CSV 通道写入 Staging `0600` 环境文件并重建 API 容器。切换后重新执行完整真实 OSS Playwright 用例，结果为 `1 passed (4.0m)`；API 为 `healthy`，清理后 Bucket 对象数为 0，证明本平台已停止使用旧 Key。
 
+旧 Key 因仍被其他外部服务使用，用户明确要求暂不停用或删除。该决定避免影响外部服务，但不满足既定验收标准第 9 条“停用并删除旧 Key”。因此 M2-CLOSE-03 保持条件通过；旧 Key 的依赖迁移与废止仍是关闭门槛，不能以本平台已切换新 Key 替代。
