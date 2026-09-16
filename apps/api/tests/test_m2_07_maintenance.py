@@ -261,6 +261,52 @@ async def test_failures_are_safe_retryable_and_not_false_success(setup):
 
 
 @pytest.mark.asyncio
+async def test_reconcile_backoff_and_repeated_run_are_idempotent(setup):
+    factory, storage, now, ids = setup
+    del_key = "v1/o/" + "7" * 32
+    deleting_up = upload(ids, now, del_key)
+    deleting = artifact(ids, deleting_up, del_key, ArtifactStatus.DELETING)
+    async with factory() as db:
+        db.add_all([deleting_up, deleting])
+        await db.commit()
+    storage.delete_errors[del_key] = StorageErrorCode.TIMEOUT
+    clock = {"now": now}
+    service = ArtifactMaintenanceService(
+        factory, storage, now=lambda: clock["now"]
+    )
+
+    first = await service.run_once()
+    immediate = await service.run_once()
+    assert first.failures == 1 and immediate.failures == 0
+    async with factory() as db:
+        row = await db.get(ArtifactModel, deleting.id)
+        assert row.cleanup_attempts == 1
+        assert row.cleanup_next_attempt_at.replace(tzinfo=UTC) == now + timedelta(
+            seconds=30
+        )
+
+    clock["now"] = now + timedelta(seconds=30)
+    second_attempt = await service.run_once()
+    assert second_attempt.failures == 1
+    async with factory() as db:
+        row = await db.get(ArtifactModel, deleting.id)
+        assert row.cleanup_attempts == 2
+        assert row.cleanup_next_attempt_at.replace(tzinfo=UTC) == now + timedelta(
+            seconds=90
+        )
+
+    storage.delete_errors.clear()
+    clock["now"] = now + timedelta(seconds=90)
+    recovered = await service.run_once()
+    final = await service.run_once()
+    assert recovered.artifacts_deleted == 1 and final.artifacts_deleted == 0
+    async with factory() as db:
+        row = await db.get(ArtifactModel, deleting.id)
+        assert row.status == ArtifactStatus.DELETED
+        assert row.cleanup_attempts == 0 and row.cleanup_next_attempt_at is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "terminal_status",
     [

@@ -16,7 +16,12 @@ from platform_api.db.base import Base
 from platform_api.db.models import ArtifactModel, UploadSessionModel
 from platform_api.db.session import get_session
 from platform_api.main import create_app
-from platform_api.modules.artifact.storage import ObjectMetadata, PresignedRequest
+from platform_api.modules.artifact.storage import (
+    ObjectMetadata,
+    ObjectStorageError,
+    PresignedRequest,
+    StorageErrorCode,
+)
 
 
 class FakeTokenVerifier:
@@ -33,6 +38,8 @@ class FakeStorage:
     content: bytes
     completes: int = 0
     completed_parts: list[tuple[int, str]] = field(default_factory=list)
+    complete_error: StorageErrorCode | None = None
+    head_error: StorageErrorCode | None = None
 
     async def start_multipart(self, object_key, content_type, *, cancellation=None):
         return "remote-upload-1"
@@ -55,8 +62,12 @@ class FakeStorage:
     ):
         self.completes += 1
         self.completed_parts = [(part.part_number, part.etag) for part in parts]
+        if self.complete_error:
+            raise ObjectStorageError(self.complete_error, "safe", retryable=True)
 
     async def head(self, object_key, *, cancellation=None):
+        if self.head_error:
+            raise ObjectStorageError(self.head_error, "safe", retryable=True)
         return ObjectMetadata(len(self.content), "etag", "application/octet-stream")
 
     async def read_chunks(self, object_key, *, cancellation=None):
@@ -178,6 +189,41 @@ async def test_complete_stream_verifies_and_replays(completion_api):
         artifact = await session.scalar(select(ArtifactModel))
     assert upload.status.value == "COMPLETED" and upload.reserved_bytes == 0
     assert artifact.verified_sha256 == hashlib.sha256(storage.content).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_lost_complete_response_is_recovered_by_head(completion_api):
+    client, factory, storage = completion_api
+    base, body = await prepared(client, storage.content)
+    storage.complete_error = StorageErrorCode.TIMEOUT
+    completed = await client.post(
+        f"{base}:complete", headers=headers("lost-response-key"), json=body
+    )
+    assert completed.status_code == 201 and completed.json()["status"] == "AVAILABLE"
+    async with factory() as session:
+        assert len(list((await session.scalars(select(ArtifactModel))).all())) == 1
+
+
+@pytest.mark.asyncio
+async def test_transient_complete_and_head_failure_remains_retryable(completion_api):
+    client, factory, storage = completion_api
+    base, body = await prepared(client, storage.content)
+    storage.complete_error = StorageErrorCode.TIMEOUT
+    storage.head_error = StorageErrorCode.TIMEOUT
+    failed = await client.post(
+        f"{base}:complete", headers=headers("first-attempt-key"), json=body
+    )
+    assert failed.status_code == 503
+    async with factory() as session:
+        upload = await session.scalar(select(UploadSessionModel))
+        assert upload.status.value == "COMPLETING"
+        assert await session.scalar(select(ArtifactModel)) is None
+    storage.complete_error = None
+    storage.head_error = None
+    recovered = await client.post(
+        f"{base}:complete", headers=headers("retry-attempt-key"), json=body
+    )
+    assert recovered.status_code == 201 and recovered.json()["status"] == "AVAILABLE"
 
 
 @pytest.mark.asyncio

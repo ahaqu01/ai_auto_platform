@@ -13,7 +13,11 @@ from platform_api.common.errors import DomainError
 from platform_api.db.base import Base
 from platform_api.db.session import get_session
 from platform_api.main import create_app
-from platform_api.modules.artifact.storage import PresignedRequest
+from platform_api.modules.artifact.storage import (
+    ObjectStorageError,
+    PresignedRequest,
+    StorageErrorCode,
+)
 
 
 @dataclass
@@ -31,6 +35,7 @@ class FakeStorage:
     starts: int = 0
     signed: list[int] = field(default_factory=list)
     aborted: list[str] = field(default_factory=list)
+    sign_error: StorageErrorCode | None = None
 
     async def start_multipart(self, object_key, content_type, *, cancellation=None):
         self.starts += 1
@@ -46,6 +51,8 @@ class FakeStorage:
         cancellation=None,
     ):
         self.signed.append(part_number)
+        if self.sign_error:
+            raise ObjectStorageError(self.sign_error, "safe", retryable=True)
         return PresignedRequest(
             f"https://storage.test/{part_number}?signature=secret", expires_in_seconds
         )
@@ -153,6 +160,27 @@ async def test_register_replay_resume_and_conflict(multipart_api):
         and conflict.json()["code"] == "UPLOAD_PART_CONFLICT"
     )
     assert [part["part_number"] for part in resume.json()] == [1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure", [StorageErrorCode.TIMEOUT, StorageErrorCode.TEMPORARY_UNAVAILABLE]
+)
+async def test_sign_failure_keeps_remote_multipart_resumable(multipart_api, failure):
+    client, storage = multipart_api
+    base = await create_upload(client)
+    storage.sign_error = failure
+    failed = await client.post(
+        f"{base}/parts:sign", headers=headers(), json={"part_numbers": [1]}
+    )
+    assert failed.status_code == 503
+    storage.sign_error = None
+    resumed = await client.post(
+        f"{base}/parts:sign", headers=headers(), json={"part_numbers": [1]}
+    )
+    assert resumed.status_code == 200 and storage.starts == 1
+    session = await client.get(base, headers=headers())
+    assert session.json()["status"] == "UPLOADING"
 
 
 @pytest.mark.asyncio

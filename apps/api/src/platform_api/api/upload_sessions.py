@@ -481,6 +481,33 @@ async def sign_upload_parts(
             )
             upload.status = UploadSessionStatus.UPLOADING
             await session.flush()
+            trace_id = getattr(request.state, "trace_id", None)
+            detail = {"status": upload.status.value}
+            record_audit(
+                session,
+                actor_id=current_user.id,
+                action="upload_session.multipart.initialize",
+                resource_type="upload_session",
+                resource_id=upload.id,
+                organization_id=organization_id,
+                project_id=project_id,
+                trace_id=trace_id,
+                detail=detail,
+            )
+            record_outbox(
+                session,
+                organization_id=organization_id,
+                aggregate_type="upload_session",
+                aggregate_id=upload.id,
+                event_type="UploadSessionMultipartInitialized.v1",
+                aggregate_version=upload.version,
+                trace_id=trace_id,
+                payload=detail,
+            )
+            # Persist the remote upload id before signing.  A signing timeout must
+            # remain resumable and visible to expiry cleanup instead of creating
+            # an unreachable multipart upload in object storage.
+            await session.commit()
         elif upload.status is not UploadSessionStatus.UPLOADING:
             raise DomainError(
                 "UPLOAD_STATE_CONFLICT", "上传会话状态不允许分片签名", 409
@@ -506,30 +533,6 @@ async def sign_upload_parts(
             )
     except ObjectStorageError as exc:
         raise _storage_failure(exc) from exc
-    if initialized:
-        trace_id = getattr(request.state, "trace_id", None)
-        detail = {"status": upload.status.value}
-        record_audit(
-            session,
-            actor_id=current_user.id,
-            action="upload_session.multipart.initialize",
-            resource_type="upload_session",
-            resource_id=upload.id,
-            organization_id=organization_id,
-            project_id=project_id,
-            trace_id=trace_id,
-            detail=detail,
-        )
-        record_outbox(
-            session,
-            organization_id=organization_id,
-            aggregate_type="upload_session",
-            aggregate_id=upload.id,
-            event_type="UploadSessionMultipartInitialized.v1",
-            aggregate_version=upload.version,
-            trace_id=trace_id,
-            payload=detail,
-        )
     await session.commit()
     return signed
 
