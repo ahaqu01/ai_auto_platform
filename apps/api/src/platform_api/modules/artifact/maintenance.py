@@ -7,11 +7,16 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from platform_api.common.reliability import record_outbox
-from platform_api.db.models import ArtifactModel, AuditEventModel, UploadSessionModel
+from platform_api.db.models import (
+    ArtifactMaintenanceStateModel,
+    ArtifactModel,
+    AuditEventModel,
+    UploadSessionModel,
+)
 from platform_api.modules.artifact.domain import ArtifactStatus, UploadSessionStatus
 from platform_api.modules.artifact.storage import (
     ObjectStorageError,
@@ -22,6 +27,7 @@ from platform_api.modules.artifact.storage import (
 logger = logging.getLogger(__name__)
 _SYSTEM_ACTOR = UUID(int=0)
 _OBJECT_KEY = re.compile(r"^v1/o/[0-9a-f]{32}$")
+_ORPHAN_CURSOR_KEY = "orphan_cursor:v1/o/"
 _ACTIVE_UPLOADS = {
     UploadSessionStatus.PENDING_UPLOAD,
     UploadSessionStatus.UPLOADING,
@@ -187,13 +193,17 @@ class ArtifactMaintenanceService:
                     await db.commit()
 
     async def _reconcile_missing(self, metrics: MaintenanceMetrics) -> None:
+        now = self._now()
         async with self._sessions() as db:
             rows = list(
                 (
                     await db.scalars(
                         select(ArtifactModel)
                         .where(ArtifactModel.status == ArtifactStatus.AVAILABLE)
-                        .order_by(ArtifactModel.updated_at, ArtifactModel.id)
+                        .order_by(
+                            ArtifactModel.last_reconciled_at.asc().nullsfirst(),
+                            ArtifactModel.id,
+                        )
                         .limit(self._batch_size)
                     )
                 ).all()
@@ -202,6 +212,16 @@ class ArtifactMaintenanceService:
         for row_id, key in work:
             try:
                 await self._storage.head(key)
+                async with self._sessions() as db:
+                    await db.execute(
+                        update(ArtifactModel)
+                        .where(
+                            ArtifactModel.id == row_id,
+                            ArtifactModel.status == ArtifactStatus.AVAILABLE,
+                        )
+                        .values(last_reconciled_at=now)
+                    )
+                    await db.commit()
                 continue
             except ObjectStorageError as exc:
                 if exc.code != StorageErrorCode.NOT_FOUND:
@@ -225,15 +245,22 @@ class ArtifactMaintenanceService:
 
     async def _delete_orphans(self, metrics: MaintenanceMetrics) -> None:
         cutoff = self._now() - self._orphan_grace
-        seen = 0
+        cursor = await self._orphan_cursor()
+        inspected = 0
+        last_seen: str | None = None
+        reached_limit = False
         async for item in self._storage.list_objects("v1/o/"):
-            if seen >= self._batch_size:
+            if cursor is not None and item.object_key <= cursor:
+                continue
+            if inspected >= self._batch_size:
+                reached_limit = True
                 break
+            inspected += 1
+            last_seen = item.object_key
             if item.last_modified > cutoff or not _OBJECT_KEY.fullmatch(
                 item.object_key
             ):
                 continue
-            seen += 1
             async with self._sessions() as db:
                 known_upload = await db.scalar(
                     select(UploadSessionModel.id)
@@ -273,6 +300,21 @@ class ArtifactMaintenanceService:
                         "ARTIFACT_ORPHAN_DELETED",
                     )
                     await db.commit()
+        await self._save_orphan_cursor(last_seen if reached_limit else None)
+
+    async def _orphan_cursor(self) -> str | None:
+        async with self._sessions() as db:
+            row = await db.get(ArtifactMaintenanceStateModel, _ORPHAN_CURSOR_KEY)
+            return row.value if row else None
+
+    async def _save_orphan_cursor(self, value: str | None) -> None:
+        async with self._sessions() as db:
+            row = await db.get(ArtifactMaintenanceStateModel, _ORPHAN_CURSOR_KEY)
+            if row is None:
+                db.add(ArtifactMaintenanceStateModel(key=_ORPHAN_CURSOR_KEY, value=value))
+            else:
+                row.value = value
+            await db.commit()
 
     async def _record_upload_failure(
         self, row_id: UUID, code: StorageErrorCode, now: datetime

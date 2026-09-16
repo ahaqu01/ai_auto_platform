@@ -36,6 +36,7 @@ class FakeStorage:
         self.now = now
         self.aborted = []
         self.deleted = []
+        self.heads = []
         self.abort_error = None
         self.delete_errors = {}
         self.missing = set()
@@ -53,6 +54,7 @@ class FakeStorage:
         self.deleted.append(key)
 
     async def head(self, key, *, cancellation=None):
+        self.heads.append(key)
         if key in self.missing:
             raise ObjectStorageError(
                 StorageErrorCode.NOT_FOUND, "safe", retryable=False
@@ -352,3 +354,59 @@ def test_configuration_bounds(setup):
         ArtifactMaintenanceService(factory, storage, batch_size=0)
     with pytest.raises(ValueError):
         ArtifactMaintenanceService(factory, storage, orphan_grace=timedelta(seconds=-1))
+
+
+@pytest.mark.asyncio
+async def test_missing_reconciliation_rotates_beyond_batch_without_bumping_version(setup):
+    factory, storage, now, ids = setup
+    rows = []
+    async with factory() as db:
+        for index in range(5):
+            key = f"v1/o/{index + 1:032x}"
+            up = upload(ids, now, key)
+            row = artifact(ids, up, key, ArtifactStatus.AVAILABLE)
+            rows.append(row)
+            db.add_all([up, row])
+        await db.commit()
+
+    service = ArtifactMaintenanceService(
+        factory, storage, batch_size=2, now=lambda: now
+    )
+    await service.run_once()
+    await service.run_once()
+    await service.run_once()
+
+    assert set(storage.heads) == {row.object_key for row in rows}
+    async with factory() as db:
+        persisted = list(
+            (
+                await db.scalars(
+                    select(ArtifactModel).where(
+                        ArtifactModel.id.in_([row.id for row in rows])
+                    )
+                )
+            ).all()
+        )
+    assert all(row.last_reconciled_at is not None for row in persisted)
+    assert all(row.version == 1 for row in persisted)
+
+
+@pytest.mark.asyncio
+async def test_orphan_cursor_reaches_objects_after_known_batches(setup):
+    factory, storage, now, ids = setup
+    keys = [f"v1/o/{index + 1:032x}" for index in range(5)]
+    async with factory() as db:
+        db.add_all([upload(ids, now, key) for key in keys[:4]])
+        await db.commit()
+    storage.objects = [
+        StorageObjectRef(key, now - timedelta(days=2)) for key in keys
+    ]
+
+    service = ArtifactMaintenanceService(
+        factory, storage, batch_size=2, now=lambda: now
+    )
+    await service.run_once()
+    await service.run_once()
+    await service.run_once()
+
+    assert storage.deleted == [keys[4]]

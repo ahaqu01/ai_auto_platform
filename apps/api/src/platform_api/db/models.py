@@ -249,10 +249,20 @@ class ArtifactModel(IdMixin, TimestampMixin, Base):
     cleanup_next_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), index=True
     )
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     version: Mapped[int] = mapped_column(
         Integer, default=1, server_default="1", nullable=False
     )
     __mapper_args__: ClassVar[dict[str, object]] = dict(version_id_col=version)  # noqa: C408
+
+
+class ArtifactMaintenanceStateModel(Base):
+    __tablename__ = "artifact_maintenance_state"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str | None] = mapped_column(String(512))
 
 
 class AuditEventModel(IdMixin, Base):
