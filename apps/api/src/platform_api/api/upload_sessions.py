@@ -26,6 +26,7 @@ from platform_api.common.reliability import (
     record_audit,
     record_outbox,
 )
+from platform_api.common.tenancy import set_tenant_context
 from platform_api.db.models import (
     ArtifactModel,
     OrganizationModel,
@@ -596,6 +597,7 @@ async def register_upload_part(
         payload=detail,
     )
     await session.commit()
+    await set_tenant_context(session, organization_id, current_user.id)
     await session.refresh(part)
     return part
 
@@ -646,11 +648,13 @@ async def complete_upload_session(
         session, organization_id, project_id, current_user.id, write=True
     )
     upload = await session.scalar(
-        select(UploadSessionModel).where(
+        select(UploadSessionModel)
+        .where(
             UploadSessionModel.id == upload_id,
             UploadSessionModel.organization_id == organization_id,
             UploadSessionModel.project_id == project_id,
         )
+        .with_for_update()
     )
     if upload is None:
         raise DomainError("UPLOAD_SESSION_NOT_FOUND", "上传会话不存在或无权访问", 404)
@@ -693,6 +697,25 @@ async def complete_upload_session(
     if upload.status is UploadSessionStatus.UPLOADING:
         upload.status = UploadSessionStatus.COMPLETING
         await session.commit()
+    # Reacquire after the durable COMPLETING checkpoint. Serialize remote
+    # verification and final publication, then refresh any concurrent result.
+    await set_tenant_context(session, organization_id, current_user.id)
+    upload = await session.scalar(
+        select(UploadSessionModel)
+        .where(UploadSessionModel.id == upload_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    assert upload is not None
+    existing = await session.scalar(
+        select(ArtifactModel).where(ArtifactModel.upload_session_id == upload.id)
+    )
+    if upload.status is UploadSessionStatus.COMPLETED and existing is not None:
+        return JSONResponse(
+            status_code=200,
+            content=ArtifactRead.model_validate(existing).model_dump(mode="json"),
+            headers={"Idempotent-Replayed": "true"},
+        )
     port = _storage_required(storage)
     completed_parts = [CompletedPart(number, etag) for number, etag in submitted_parts]
     try:
@@ -781,6 +804,7 @@ async def complete_upload_session(
         payload=detail,
     )
     await session.commit()
+    await set_tenant_context(session, organization_id, current_user.id)
     await session.refresh(artifact)
     if not size_matches:
         raise DomainError("SIZE_MISMATCH", "对象大小与上传声明不一致", 409)
