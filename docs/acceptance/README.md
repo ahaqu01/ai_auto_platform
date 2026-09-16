@@ -71,14 +71,17 @@ M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2
 |---|---|---|
 | M2-00 | ACCEPTED | M1 验收基线、独立分支和实施计划门禁通过 |
 | M2-01 | ACCEPTED | 双状态机、opaque Key、完整性、威胁模型和恢复矩阵设计门禁通过 |
-| M2-02 | ACCEPTED | 对象存储端口、MinIO/OSS 适配契约及 CI 通过；网络 gateway 继续受安全门禁约束 |
+| M2-02 | ACCEPTED | 对象存储端口、MinIO/OSS 适配契约及 CI 通过 |
 | M2-03 | ACCEPTED | 上传会话、opaque Key、配额、幂等、取消、过期、RLS 与 CI 通过 |
-| M2-04～08 | NOT STARTED | 必须按计划顺序实施和逐项验收 |
-
-| M2-05 | ACCEPTED | Multipart 完成、完整流式 SHA-256、大小/摘要强校验、资产隔离及 RLS/CI 通过 |
-
+| M2-04 | ACCEPTED | Multipart 初始化、分片授权/登记、恢复、取消和并发完成保护通过 |
+| M2-05 | ACCEPTED | Multipart 完成、流式 SHA-256、大小/摘要强校验及失败恢复通过 |
 | M2-06 | ACCEPTED | 资产列表/详情、短期下载授权、软删除、跨租户与归档语义及 CI 通过 |
-
 | M2-07 | ACCEPTED | 过期会话、遗留 Multipart、失败删除、缺失/孤儿对象对账、退避、审计与 CI 通过 |
+| M2-08 | ACCEPTED | Web 上传、资产列表/详情/授权下载及真实 MinIO/OSS 浏览器 E2E 通过 |
+| M2-CLOSE-01 | ACCEPTED | 安全存储 Gateway、固定 peer/TLS/重定向复验及运行时装配通过 |
+| M2-CLOSE-02 | ACCEPTED | 真实 MinIO 浏览器 1 KB/100 MB/1 GB、暂停恢复、取消、重试和下载通过 |
+| M2-CLOSE-03 | ACCEPTED（批准的范围变更） | 真实阿里云 OSS E2E、新 Key 切换与项目范围凭据审计通过 |
+| M2-CLOSE-04 | ACCEPTED | 故障、安全、真实 PostgreSQL/OSS、调度、日志扫描和运维闭环通过 |
+| M2-CLOSE-05 | ACCEPTED | 产品范围、文档治理、四方签署和 M2 总体验收通过；发布证据见 M2 总体验收报告 |
 
-| M2-08 | CODE/CI ACCEPTED / STORAGE E2E PENDING | Web 分块摘要、Multipart、进度、暂停恢复、取消、重试与 CI 通过；真实 MinIO/OSS 浏览器 E2E 待执行 |
+M2 总体验收的权威结论见 `M2-总体验收报告.md`。只有报告记录的 main CI 成功提交才允许承载不可变标签 `m2-accepted`。

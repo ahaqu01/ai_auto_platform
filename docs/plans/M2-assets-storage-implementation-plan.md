@@ -1,6 +1,6 @@
 # M2 资产与对象存储闭环实施计划
 
-- 状态：CURRENT / STARTED
+- 状态：COMPLETED / ACCEPTED
 - 启动日期：2026-09-01
 - 基线：`m1-accepted`（`c81a005`）
 - 工作分支：`codex/m2-assets-storage`
@@ -74,8 +74,8 @@
 
 ## 当前下一步
 
-M2-01 设计门禁已完成。文档检查与本提交 CI 成功后，下一项为 M2-02“对象存储适配端口”。
+M2-01～08 与 M2-CLOSE-01～05 已完成。下一步只允许按 M2 总体验收报告执行发布治理：四方签署完成后合并 main，确认 main CI 成功，再创建指向该 main 提交的不可变 `m2-accepted` 标签。不得在 main CI 成功前创建标签。
 
-M2-02 开始前必须轮换已暴露的长期 OSS AccessKey，并通过受控密钥通道配置最小权限 RAM/STS 身份。已知非秘密环境为 `cn-hangzhou`、`https://oss-cn-hangzhou.aliyuncs.com` 和私有 Bucket `aiautoplatform`。不得先以长期密钥直连代码，也不得用 MinIO 结果代替 OSS Staging 证据。
+真实 MinIO、阿里云 OSS、凭据切换、浏览器 E2E、故障注入、真实 PostgreSQL/OSS 联合矩阵、调度与日志扫描证据已进入各 CLOSE 验收记录。其他服务仍使用的旧 OSS Key 属于经项目负责人批准的范围外遗留风险，不改变其“已暴露凭据、应继续迁移”的安全属性。
 
 M2-01 的权威设计见 `docs/adr/0006-asset-object-identity-and-lifecycle.md` 和 `docs/design/06-M2资产与对象存储设计基线.md`。

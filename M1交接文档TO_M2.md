@@ -1,5 +1,7 @@
 # M1 交接文档 TO M2
 
+> **历史快照说明（2026-09-16）**：本文记录 M1→M2 启动时的状态和当时下一步，不再代表当前执行状态。M2 当前权威状态见 [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md)，最终证据见 [`docs/acceptance/M2-总体验收报告.md`](docs/acceptance/M2-总体验收报告.md)。以下历史正文保留，不再据此判断 M2 是否完成。
+
 > 交接日期：2026-09-02
 > 仓库：`/home/diffgram/workspace/ai_auto_platform`
 > 当前分支：`codex/m2-assets-storage`

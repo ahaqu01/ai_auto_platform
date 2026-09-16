@@ -2,7 +2,7 @@
 
 > 工作包：产品范围与阶段治理  
 > 启动日期：2026-09-16  
-> 当前状态：`STARTED / IN PROGRESS`  
+> 当前状态：`FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`
 > 分支：`codex/m2-assets-storage`
 
 ## 1. 启动条件
@@ -16,15 +16,12 @@
 3. 阶段总验收：汇总 M2-01～08 与 M2-CLOSE-01～05 的代码、CI、真实 MinIO/OSS、安全和运维证据。
 4. 发布治理：取得产品、技术、安全、QA 四方签署后，合并 main、验证 main CI，最后创建不可变 `m2-accepted` 标签。
 
-## 3. 启动审计结果
+## 3. 启动审计与治理结果
 
 - 资产列表、详情与授权下载能力已存在，真实 MinIO/OSS 浏览器验收也已覆盖下载；仍需对照计划进行产品范围复核并形成签署记录。
-- `docs/CURRENT_STATUS.md` 仍保留“M2-02 至 M2-08 尚未实现”的历史描述，与后续已完成状态矛盾。
-- `docs/acceptance/README.md` 同时存在 `M2-04～08 NOT STARTED` 和各分项已接受记录，索引需要统一。
-- M2 实施计划的“当前下一步”仍停留在 M2-02，需要改为 M2-CLOSE-05/总验收。
-- `M1交接文档TO_M2.md` 需要明确标记为历史快照并链接当前权威状态。
-- M2-08 文档需要准确反映真实 MinIO、OSS E2E 已完成，避免继续显示 STORAGE E2E PENDING。
+- 启动审计发现 `CURRENT_STATUS` 的“M2-02 至 08 尚未实现”、验收索引的 `M2-04～08 NOT STARTED`、实施计划停留 M2-02、M1→M2 交接未标历史以及 M2-08 的 STORAGE E2E PENDING 等过期描述。
+- 上述矛盾均已修复；首轮专家评审报告保留为历史快照并链接当前权威结论。
 
 ## 4. 当前判定
 
-`M2-CLOSE-05 = STARTED / IN PROGRESS`。本次只完成启动与基线审计，尚未签署 M2 总体验收，不创建 `m2-accepted` 标签。
+产品范围复核、权威文档治理、M2 总体验收报告以及产品/技术/安全/QA 四方角色签署已完成。当前进入 main 发布门禁；main CI 成功前不创建 `m2-accepted` 标签。

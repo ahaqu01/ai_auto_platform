@@ -36,9 +36,9 @@ M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 �
 
 ## M2 当前状态
 
-M2-00 启动门禁和 M2-01 设计门禁已通过，独立工作分支为 `codex/m2-assets-storage`。M2-01 已固定双状态机、opaque 对象 Key、完整 SHA-256、授权/归档、威胁模型和失败恢复边界。文档/CI 门禁通过后允许进入 M2-02；M2-02 至 M2-08 尚未实现，M2 尚未 ACCEPTED。
+M2-00～08 与 M2-CLOSE-01～04 已完成并通过分项验收；M2-CLOSE-05 已完成产品复核、文档治理和四方角色签署，当前处于 `FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`。以下分项段落是实施证据摘要，不再表示“当前进入下一工作包”。
 M2-01 设计提交为 `e69b249`，GitHub Actions run `33580267593` 为 success。
-M2-02 对象存储端口和 MinIO/OSS 适配契约已通过验收；实现提交 `d4e0123`，GitHub Actions run `33581470484` 为 success。允许进入 M2-03。真实网络 gateway 仍受 M0R-04R-05 阻断，不得宣称 OSS/MinIO 数据面已通过。
+M2-02 对象存储端口和 MinIO/OSS 适配契约已通过验收；实现提交 `d4e0123`，GitHub Actions run `33581470484` 为 success。其当时遗留的真实网络 Gateway 门禁已由 M2-CLOSE-01 关闭。
 
 M2-03 上传会话已通过验收；实现提交 `cca6a9b`，GitHub Actions run `33582996780` 为 success。迁移、PostgreSQL/RLS、配额、幂等、取消和过期门禁通过，允许进入 M2-04。
 执行计划见 [M2 资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)，启动证据见 [M2-00 验收记录](acceptance/M2-00-kickoff-gate.md)。
@@ -57,12 +57,12 @@ M2-06 资产访问与授权已通过验收：实现提交 `5cf93b6`，覆盖率�
 M2-07 清理与对账已通过验收：实现提交 `38a4e90`，迁移头 `20260915_11`，GitHub Actions run `34927350605` 为 success。过期会话、遗留 Multipart、DELETING 资产、缺失对象、孤儿对象、失败退避、SYSTEM 审计与 Outbox 门禁通过；当前进入 M2-08。
 
 
-M2-08 Web 上传闭环已完成代码与 CI 验收：实现提交 `faf08b4`，Web 分块摘要、Multipart、进度、暂停/恢复、取消和失败重试门禁通过。真实 MinIO/阿里云 OSS 浏览器 Staging E2E 与 1 KB/100 MB/1 GB 样本仍待安全环境执行；M2 总体验收和 `m2-accepted` 标签不得提前签署。
+M2-08 Web 上传闭环已验收：实现提交 `faf08b4`，Web 分块摘要、Multipart、进度、暂停/恢复、取消、失败重试、资产列表/详情和授权下载通过。真实 MinIO 与阿里云 OSS 浏览器 Staging E2E 已分别由 M2-CLOSE-02/03 关闭。
 
 
-M2-CLOSE-01 安全存储 Gateway 已达到 CODE/RUNTIME/MINIO ACCEPTED：实现提交 `ea748b5`、验收修复 `efe20f3`、GitHub Actions run `34964313687` success。固定 peer HTTPS transport、MinIO 运行时和真实 Multipart/读取/列举/下载/删除证据齐全；此前暴露的 OSS 长期 Key 未复用，但阿里云侧禁用/删除证明尚未取得，因此保持 CREDENTIAL ROTATION EVIDENCE PENDING，M2 仍不得总签。
+M2-CLOSE-01 安全存储 Gateway 已 ACCEPTED：实现提交 `ea748b5`、验收修复 `efe20f3`、GitHub Actions run `34964313687` success。固定 peer HTTPS transport、MinIO 运行时和真实 Multipart/读取/列举/下载/删除证据齐全；凭据切换与批准的项目范围变更见 M2-CLOSE-03。
 
-M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、矩阵提交 `b3d03ba`、中文认证断言提交 `d466b49`，GitHub Actions run `34970847263` success。真实 Chromium 已通过中文登录、组织/项目、1 KB/100 MB/1 GB 样本、暂停/恢复、取消、故障重试、强校验、资产详情及授权下载；临时用户、组织、会话、资产与对象均已清理。Demo 数据库已升级至 `20260915_11`，全栈服务 healthy。M2-CLOSE-03 阿里云 OSS Staging 证据与凭据轮换证明仍未完成，M2 不得总签。
+M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、矩阵提交 `b3d03ba`、中文认证断言提交 `d466b49`，GitHub Actions run `34970847263` success。真实 Chromium 已通过中文登录、组织/项目、1 KB/100 MB/1 GB 样本、暂停/恢复、取消、故障重试、强校验、资产详情及授权下载；临时用户、组织、会话、资产与对象均已清理。Demo 数据库已升级至 `20260915_11`，全栈服务 healthy。
 ## M2-CLOSE-03（2026-09-16）
 
 - 结论：`ACCEPTED`（经批准的范围变更）；真实阿里云 OSS 浏览器 E2E 已通过，本平台已切换到新 Key（尾号 `8cg4`）。
@@ -86,7 +86,7 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 
 ## M2-CLOSE-05（2026-09-16）
 
-- 状态：`STARTED / IN PROGRESS`，前置门禁 M2-CLOSE-01～04 均已关闭。
+- 状态：`FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`，前置门禁 M2-CLOSE-01～04 均已关闭。
 - 当前工作范围为资产列表/详情/授权下载产品复核、权威文档一致性治理、M2 总体验收及四方签署。
 - 已确认验收索引、实施计划、M1→M2 交接快照、M2-08 和 CURRENT_STATUS 中存在过期或矛盾描述，纳入本工作包修复。
-- 尚未进行 M2 总签、main 合并和 `m2-accepted` 标签；只有四方签署、main CI 成功后才能创建标签。
+- 产品范围复核、文档治理、M2 总体验收报告和产品/技术/安全/QA 四方角色签署已完成。下一步严格执行：合并 main → main CI success → 更新最终发布证据 → 最终 main CI success → 创建 `m2-accepted` 标签。
