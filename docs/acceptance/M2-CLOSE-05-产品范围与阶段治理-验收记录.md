@@ -1,7 +1,7 @@
 # M2-CLOSE-05 产品范围与阶段治理验收记录
 
 > 日期：2026-09-16  
-> 当前结论：`FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`
+> 当前结论：`ACCEPTED / CLOSED`
 
 ## 启动门禁
 
@@ -17,4 +17,4 @@
 
 ## 当前判定
 
-产品复核、文档治理和四方签署已通过。当前必须继续按“合并 main → main CI → 写回最终证据 → 最终 main CI → 标签”的顺序执行；标签创建前不得宣称发布门禁完成。
+产品复核、文档治理和四方签署已通过；非快进合并提交 `270eee8` 已进入 main，GitHub Actions run `35107761452` success。当前最终证据提交 CI 成功后允许创建 `m2-accepted` 标签。M2-CLOSE-05 验收关闭。

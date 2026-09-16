@@ -2,7 +2,7 @@
 
 > 工作包：产品范围与阶段治理  
 > 启动日期：2026-09-16  
-> 当前状态：`FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`
+> 当前状态：`ACCEPTED / CLOSED`
 > 分支：`codex/m2-assets-storage`
 
 ## 1. 启动条件
@@ -24,4 +24,4 @@
 
 ## 4. 当前判定
 
-产品范围复核、权威文档治理、M2 总体验收报告以及产品/技术/安全/QA 四方角色签署已完成。当前进入 main 发布门禁；main CI 成功前不创建 `m2-accepted` 标签。
+产品范围复核、权威文档治理、M2 总体验收报告以及产品/技术/安全/QA 四方角色签署已完成。非快进合并提交 `270eee8` 的 main CI run `35107761452` success；最终证据提交 CI 成功后创建 `m2-accepted` 标签。

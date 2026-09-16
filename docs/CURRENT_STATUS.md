@@ -36,7 +36,7 @@ M2 严格按“对象 Key/威胁模型 → 存储适配端口 → 上传会话 �
 
 ## M2 当前状态
 
-M2-00～08 与 M2-CLOSE-01～04 已完成并通过分项验收；M2-CLOSE-05 已完成产品复核、文档治理和四方角色签署，当前处于 `FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`。以下分项段落是实施证据摘要，不再表示“当前进入下一工作包”。
+M2-00～08 与 M2-CLOSE-01～05 已完成并通过验收，当前结论为 `M2 ACCEPTED`。非快进合并提交 `270eee8` 已进入 main，GitHub Actions run `35107761452` success。以下分项段落是实施证据摘要，不再表示“当前进入下一工作包”。
 M2-01 设计提交为 `e69b249`，GitHub Actions run `33580267593` 为 success。
 M2-02 对象存储端口和 MinIO/OSS 适配契约已通过验收；实现提交 `d4e0123`，GitHub Actions run `33581470484` 为 success。其当时遗留的真实网络 Gateway 门禁已由 M2-CLOSE-01 关闭。
 
@@ -86,7 +86,7 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 
 ## M2-CLOSE-05（2026-09-16）
 
-- 状态：`FOUR-PARTY ACCEPTED / MAIN RELEASE PENDING`，前置门禁 M2-CLOSE-01～04 均已关闭。
+- 状态：`ACCEPTED / CLOSED`，前置门禁 M2-CLOSE-01～04 均已关闭。
 - 当前工作范围为资产列表/详情/授权下载产品复核、权威文档一致性治理、M2 总体验收及四方签署。
 - 已确认验收索引、实施计划、M1→M2 交接快照、M2-08 和 CURRENT_STATUS 中存在过期或矛盾描述，纳入本工作包修复。
-- 产品范围复核、文档治理、M2 总体验收报告和产品/技术/安全/QA 四方角色签署已完成。下一步严格执行：合并 main → main CI success → 更新最终发布证据 → 最终 main CI success → 创建 `m2-accepted` 标签。
+- 产品范围复核、文档治理、M2 总体验收报告和产品/技术/安全/QA 四方角色签署已完成。合并 main 及首次 main CI 已通过；当前最终证据提交 CI 成功后创建指向该提交的 `m2-accepted` 标签。
