@@ -2,7 +2,7 @@
 
 > 工作包：故障、安全与运维闭环  
 > 启动日期：2026-09-16  
-> 当前状态：`IN PROGRESS`  
+> 当前状态：`ACCEPTED / CLOSED`
 > 分支：`codex/m2-assets-storage`
 
 ## 1. 目标与范围
@@ -25,8 +25,10 @@ M2-CLOSE-04 用于关闭 M2 专家评审中关于故障恢复、真实权限隔�
 
 - `47a80c6`：按批准的范围变更关闭 M2-CLOSE-03，并开放 M2-CLOSE-04。
 - `09c03bb`：实现故障安全的资产维护生产调度入口、测试和 Staging 编排。
+- `3024674`：补齐分片签名故障、完成响应丢失、HEAD 瞬时失败、清理退避/幂等和真实 PostgreSQL RLS 矩阵；CI run `35085772619` success。
+- `de4992d`：修复并发完成序列化、提交后租户上下文恢复，加入数据库最终提交失败和真实 OSS+PostgreSQL 联合矩阵；CI run `35101720073` success。
 
-以上提交均已推送到 `origin/codex/m2-assets-storage`。`09c03bb` 的远端 CI 结论需在工作流完成后写入最终验收记录。
+以上提交均已推送到 `origin/codex/m2-assets-storage`，对应 CI 均成功。
 
 ## 4. 启动验证记录
 
@@ -39,14 +41,17 @@ M2-CLOSE-04 用于关闭 M2 专家评审中关于故障恢复、真实权限隔�
 - 心跳：容器内心跳文件存在。
 - 凭证扫描：API、Web/Nginx、Keycloak、维护服务日志及 PostgreSQL 审计/Outbox 数据均未命中新 OSS AK/Secret。
 
-## 5. 尚未完成
+## 5. 最终复验证据
 
-- 补齐并执行完整故障注入矩阵：分片 500/超时、签名过期、重复分片、并发 complete、响应丢失、数据库提交失败、HEAD 瞬时失败、对象缺失和删除失败。
-- 在真实 PostgreSQL 与真实对象存储链路复验租户 A/B/无租户、非成员、归档项目及 QUARANTINED/DELETING/DELETED。
-- 重复运行 reconcile，记录幂等、退避、孤儿保护窗口和真实清理结果。
-- 扫描完整预签名 URL、Authorization/Cookie 等敏感请求头，而不只 AK/Secret。
-- 等待实现提交 CI 成功，并形成最终验收结论。
+- 全量 API/隔离 PostgreSQL 回归：`309 passed, 1 skipped`；skip 为必须显式授权的真实 OSS 用例，已单独执行并 `1 passed`。
+- 真实 PostgreSQL + 真实阿里云 OSS：AVAILABLE/下载逐字节一致、非成员、无认证、归档、QUARANTINED、DELETING、DELETED、删除失败退避及重复 reconcile 全部通过。
+- PostgreSQL 并发 complete 只发布一个 Artifact；响应分别为 201/200，真实远端 complete 仅调用一次。
+- 最终数据库提交失败后保持 COMPLETING、无伪 Artifact，重试恢复为 AVAILABLE。
+- 真实 OSS 签名：新签名 PUT `200`，65 秒后同一 URL `403`；Multipart 已清理。
+- 敏感扫描覆盖 AK/Secret、完整签名查询参数、Authorization、Cookie、Set-Cookie 和内部 upload ID；API、Web/Nginx、Keycloak、维护服务、审计与 Outbox 均未命中。
+- 最新 Staging API 与维护服务均 `healthy`；维护单轮 `failures=0`；Bucket `v1/o/` 对象数为 0。
+- 临时 `platform_test` 数据库和角色均已删除，复核计数为 0/0。
 
 ## 6. 当前结论
 
-`M2-CLOSE-03 = ACCEPTED/CLOSED`；`M2-CLOSE-04 = STARTED/IN PROGRESS`。生产调度缺口已实现并在 Staging 实跑，但完整故障与真实隔离矩阵尚未全部完成，因此本工作包当前不得标记 `ACCEPTED`，M2 也不得总签。
+`M2-CLOSE-04 = ACCEPTED/CLOSED`。故障、安全、真实租户隔离、生产调度和清理证据均已满足验收标准，允许启动 `M2-CLOSE-05`；M2 总签仍须等待 M2-CLOSE-05。

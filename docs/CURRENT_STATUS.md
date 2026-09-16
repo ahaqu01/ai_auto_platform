@@ -76,8 +76,10 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 
 ## M2-CLOSE-04（2026-09-16）
 
-- 状态：`STARTED / IN PROGRESS`，不得标记为 ACCEPTED。
+- 状态：`ACCEPTED / CLOSED`，允许启动 M2-CLOSE-05。
 - 实现提交 `09c03bb` 已新增资产维护生产调度入口、PostgreSQL advisory lock 防重入、单轮超时、结构化指标/告警、心跳健康检查、配置边界及独立 Staging 服务。
 - Ruff 通过；调度专项及 M2-07 回归 `14 passed`；Staging 服务 `healthy`，真实 OSS 配置下一次运行 `failures=0`，持锁时正确跳过。
 - API、Web/Nginx、Keycloak、维护任务及数据库审计/Outbox 的 AK/Secret 扫描均未命中。
-- 完整故障注入、真实租户/状态矩阵、全类别敏感日志扫描、隔离 PostgreSQL 回归和实现提交 CI 仍待完成；完成前 M2 不得总签。
+- 故障专项、真实 PostgreSQL RLS、真实 PostgreSQL+OSS 联合状态矩阵、过期签名、全类别敏感日志扫描、并发完成、DB 提交失败恢复及重复 reconcile 均已通过。
+- 全量回归 `309 passed, 1 skipped`，显式授权的真实 OSS 用例单独执行 `1 passed`；提交 `3024674`、`de4992d` 的 CI 均 success。
+- Staging API/维护服务 healthy，维护单轮 `failures=0`，Bucket 对象数 0；临时测试数据库与角色已清理。M2-CLOSE-04 已关闭，M2 总签仍等待 M2-CLOSE-05。
