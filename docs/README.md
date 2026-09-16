@@ -3,7 +3,7 @@
 > Owner：平台架构负责人
 > 版本：1.0
 > 状态：CURRENT
-> 更新日期：2026-08-26
+> 更新日期：2026-09-02
 > 唯一当前状态源：[CURRENT_STATUS.md](CURRENT_STATUS.md)
 
 ## 状态定义
@@ -41,3 +41,9 @@
 3. 新计划必须声明替代范围。
 4. 历史证据不回写；通过新记录纠偏。
 5. 本地测试通过最高只能标记 `IMPLEMENTED_LOCAL`；`ACCEPTED` 需要 CI、Staging 和签署证据。
+
+## M2 当前设计
+
+- M2 计划：[资产与对象存储闭环实施计划](plans/M2-assets-storage-implementation-plan.md)
+- M2-01 决策：[ADR-0006](adr/0006-asset-object-identity-and-lifecycle.md)
+- M2-01 设计：[资产与对象存储设计基线](design/06-M2资产与对象存储设计基线.md)

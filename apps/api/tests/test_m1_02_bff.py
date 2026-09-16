@@ -16,6 +16,11 @@ class FakeBffService:
         state = await self.store.create_login(return_to, "verifier", "nonce")
         return f"https://id.example/authorize?state={state}&code_challenge=challenge&code_challenge_method=S256"
 
+    async def registration_url(self, return_to: str) -> str:
+        return (await self.authorization_url(return_to)).replace(
+            "/authorize?", "/registrations?"
+        )
+
     async def complete_login(self, code: str, state: str):
         login = await self.store.consume_login(state)
         if code != "code" or login is None:
@@ -91,3 +96,71 @@ def test_session_and_logout_enforce_origin_and_csrf() -> None:
     assert accepted.status_code == 204
     assert service.revoked == ["refresh"]
     assert "Max-Age=0" in accepted.headers["set-cookie"]
+
+
+def test_registration_callback_reuses_session_and_rejects_external_return() -> None:
+    api, _ = client()
+    for target, expected in [
+        ("/workspace", "/workspace"),
+        ("https://evil.example", "/"),
+        ("//evil.example", "/"),
+    ]:
+        registration = api.get(
+            "/auth/register", params={"return_to": target}, follow_redirects=False
+        )
+        assert registration.status_code == 303
+        location = urlparse(registration.headers["location"])
+        assert location.path == "/registrations"
+        query = parse_qs(location.query)
+        assert query["code_challenge_method"] == ["S256"]
+        state = query["state"][0]
+        callback = api.get(
+            "/auth/callback",
+            params={"code": "code", "state": state},
+            follow_redirects=False,
+        )
+        assert callback.status_code == 303
+        assert callback.headers["location"] == expected
+        assert "HttpOnly" in callback.headers["set-cookie"]
+        assert (
+            api.get(
+                "/auth/callback",
+                params={"code": "code", "state": state},
+                follow_redirects=False,
+            ).status_code
+            == 400
+        )
+
+
+def test_real_registration_url_preserves_oidc_security_parameters() -> None:
+    import asyncio
+    import base64
+    import hashlib
+
+    from platform_api.auth.bff import BffService
+    from platform_api.settings import Settings
+
+    async def check() -> None:
+        store = MemorySessionStore()
+        settings = Settings(keycloak_issuer="https://id.example/realms/platform")
+        service = BffService(settings, store, None, None)
+        location = urlparse(await service.registration_url("/workspace"))
+        assert location.path.endswith("/protocol/openid-connect/registrations")
+        query = parse_qs(location.query)
+        transaction = await store.consume_login(query["state"][0])
+        assert transaction is not None
+        assert transaction.return_to == "/workspace"
+        assert query["nonce"] == [transaction.nonce]
+        assert query["redirect_uri"] == [settings.bff_callback_url]
+        assert query["response_type"] == ["code"]
+        assert query["code_challenge_method"] == ["S256"]
+        challenge = (
+            base64.urlsafe_b64encode(
+                hashlib.sha256(transaction.code_verifier.encode()).digest()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
+        assert query["code_challenge"] == [challenge]
+
+    asyncio.run(check())

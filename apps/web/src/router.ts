@@ -9,6 +9,11 @@ export default createRouter({
       component: () => import('./views/HomeView.vue'),
     },
     {
+      path: '/data-assets',
+      name: 'assets',
+      component: () => import('./views/AssetsView.vue'),
+    },
+    {
       path: '/workspace',
       name: 'workspace',
       component: () => import('./views/WorkspaceView.vue'),

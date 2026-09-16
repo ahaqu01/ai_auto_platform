@@ -175,8 +175,110 @@ async def test_runtime_role_and_api_cross_tenant_matrix(postgresql_api) -> None:
                     "project_members",
                     "audit_events",
                     "outbox_events",
+                    "upload_sessions",
+                    "upload_parts",
+                    "artifacts",
                 ]
             },
         )
     assert attributes == (False, False, False, False)
-    assert enabled == 7
+    assert enabled == 10
+
+
+async def test_m2_artifact_tables_enforce_real_postgresql_tenant_context(
+    postgresql_api,
+) -> None:
+    client = postgresql_api.client
+    organization_a, project_a = await create_tenant(
+        client, "owner-token", "m2-close04-a"
+    )
+    organization_b, project_b = await create_tenant(
+        client, "outsider-token", "m2-close04-b"
+    )
+
+    async def create_upload(token: str, organization_id: UUID, project_id: UUID):
+        response = await client.post(
+            f"/api/v1/organizations/{organization_id}/projects/{project_id}/upload-sessions",
+            headers=bearer(token, f"m2-close04-upload-{uuid4().hex}"),
+            json={
+                "display_name": "matrix.bin",
+                "size_bytes": 1,
+                "sha256": "0" * 64,
+                "content_type": "application/octet-stream",
+            },
+        )
+        assert response.status_code == 201, response.text
+        return UUID(response.json()["id"])
+
+    upload_a = await create_upload("owner-token", organization_a, project_a)
+    upload_b = await create_upload("outsider-token", organization_b, project_b)
+    async with postgresql_api.database.session_factory() as session:
+        actor_a = await session.scalar(
+            select(UserModel.id).where(UserModel.external_subject == "owner-subject")
+        )
+        actor_b = await session.scalar(
+            select(UserModel.id).where(UserModel.external_subject == "outsider-subject")
+        )
+    assert actor_a and actor_b
+
+    artifacts: dict[UUID, UUID] = {}
+    for organization_id, project_id, actor_id, upload_id, status in (
+        (organization_a, project_a, actor_a, upload_a, "AVAILABLE"),
+        (organization_b, project_b, actor_b, upload_b, "QUARANTINED"),
+    ):
+        artifact_id = uuid4()
+        artifacts[organization_id] = artifact_id
+        async with postgresql_api.database.engine.begin() as connection:
+            await set_context(connection, actor_id, organization_id)
+            object_key = await connection.scalar(
+                text("select object_key from upload_sessions where id = :id"),
+                {"id": upload_id},
+            )
+            assert object_key
+            await connection.execute(
+                text(
+                    "insert into artifacts "
+                    "(id, upload_session_id, organization_id, project_id, created_by, "
+                    "display_name, object_key, bucket_alias, size_bytes, expected_sha256, "
+                    "verified_sha256, declared_content_type, detected_content_type, "
+                    "integrity_status, security_scan_status, status) values "
+                    "(:id, :upload_id, :organization_id, :project_id, :created_by, "
+                    "'matrix.bin', :object_key, 'primary', 1, :sha256, :sha256, "
+                    "'application/octet-stream', 'application/octet-stream', "
+                    "'VERIFIED', 'NOT_REQUIRED', :status)"
+                ),
+                {
+                    "id": artifact_id,
+                    "upload_id": upload_id,
+                    "organization_id": organization_id,
+                    "project_id": project_id,
+                    "created_by": actor_id,
+                    "object_key": object_key,
+                    "sha256": "0" * 64,
+                    "status": status,
+                },
+            )
+
+    async with postgresql_api.database.engine.connect() as connection:
+        for organization_id, actor_id, upload_id in (
+            (organization_a, actor_a, upload_a),
+            (organization_b, actor_b, upload_b),
+        ):
+            async with connection.begin():
+                await set_context(connection, actor_id, organization_id)
+                assert list(
+                    await connection.scalars(text("select id from upload_sessions"))
+                ) == [upload_id]
+                assert list(
+                    await connection.scalars(text("select id from artifacts"))
+                ) == [artifacts[organization_id]]
+        async with connection.begin():
+            await set_context(connection, actor_a, None)
+            assert list(await connection.scalars(text("select id from upload_sessions"))) == []
+            assert list(await connection.scalars(text("select id from artifacts"))) == []
+
+    hidden = await client.get(
+        f"/api/v1/organizations/{organization_a}/projects/{project_a}/upload-sessions/{upload_a}",
+        headers=bearer("outsider-token"),
+    )
+    assert hidden.status_code == 404

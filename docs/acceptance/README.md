@@ -1,7 +1,7 @@
 # Acceptance Status Index
 
 > Owner：QA 负责人
-> Updated：2026-08-27
+> Updated：2026-09-02
 > Status：EVIDENCE INDEX
 > Authoritative current status：[../CURRENT_STATUS.md](../CURRENT_STATUS.md)
 
@@ -63,4 +63,25 @@ M1-10 Web 组织/项目闭环：IMPLEMENTED_LOCAL / PASSED_LOCAL。BFF 登录入
 
 ## M1 总体验收状态
 
-M1 总体验收：NOT ACCEPTED / TESTS_FAILED / BLOCKED_EXTERNAL。API/PostgreSQL 193 项、Web 9 项、Keycloak service token、RLS/审计及 Demo 通过；覆盖率门槛、真实用户浏览器 E2E、Python/Go SCA/SAST、远程 CI/外部 Staging 矩阵和四方签字未通过或阻塞。详见根目录 `M1总体验收报告.md`。
+M1 总体验收：ACCEPTED。最终复验、main CI、真实 Chromium Staging E2E、安全扫描和四方确认均已完成；不可变标签 `m1-accepted` 指向 `c81a005`。
+
+## M2 当前状态
+
+| Slice | 当前状态 | 说明 |
+|---|---|---|
+| M2-00 | ACCEPTED | M1 验收基线、独立分支和实施计划门禁通过 |
+| M2-01 | ACCEPTED | 双状态机、opaque Key、完整性、威胁模型和恢复矩阵设计门禁通过 |
+| M2-02 | ACCEPTED | 对象存储端口、MinIO/OSS 适配契约及 CI 通过 |
+| M2-03 | ACCEPTED | 上传会话、opaque Key、配额、幂等、取消、过期、RLS 与 CI 通过 |
+| M2-04 | ACCEPTED | Multipart 初始化、分片授权/登记、恢复、取消和并发完成保护通过 |
+| M2-05 | ACCEPTED | Multipart 完成、流式 SHA-256、大小/摘要强校验及失败恢复通过 |
+| M2-06 | ACCEPTED | 资产列表/详情、短期下载授权、软删除、跨租户与归档语义及 CI 通过 |
+| M2-07 | ACCEPTED | 过期会话、遗留 Multipart、失败删除、缺失/孤儿对象对账、退避、审计与 CI 通过 |
+| M2-08 | ACCEPTED | Web 上传、资产列表/详情/授权下载及真实 MinIO/OSS 浏览器 E2E 通过 |
+| M2-CLOSE-01 | ACCEPTED | 安全存储 Gateway、固定 peer/TLS/重定向复验及运行时装配通过 |
+| M2-CLOSE-02 | ACCEPTED | 真实 MinIO 浏览器 1 KB/100 MB/1 GB、暂停恢复、取消、重试和下载通过 |
+| M2-CLOSE-03 | ACCEPTED（批准的范围变更） | 真实阿里云 OSS E2E、新 Key 切换与项目范围凭据审计通过 |
+| M2-CLOSE-04 | ACCEPTED | 故障、安全、真实 PostgreSQL/OSS、调度、日志扫描和运维闭环通过 |
+| M2-CLOSE-05 | ACCEPTED | 产品范围、文档治理、四方签署和 M2 总体验收通过；发布证据见 M2 总体验收报告 |
+
+M2 总体验收的权威结论见 `M2-总体验收报告.md`。只有报告记录的 main CI 成功提交才允许承载不可变标签 `m2-accepted`。

@@ -26,6 +26,10 @@ def deployment_settings(**overrides: str) -> dict[str, str]:
         "oss_public_endpoint": "https://objects.example.com",
         "oss_internal_endpoint": "http://10.20.30.40:9000",
         "oss_bucket": "platform-assets",
+        "oss_provider": "minio",
+        "oss_region": "us-east-1",
+        "oss_access_key_id": "test-access-id",
+        "oss_access_key_secret": "test-access-secret",
     }
     values.update(overrides)
     return values

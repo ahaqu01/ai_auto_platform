@@ -3,7 +3,14 @@
   "enabled": true,
   "displayName": "AI Auto Platform",
   "sslRequired": "none",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["zh-CN"],
+  "defaultLocale": "zh-CN",
+  "registrationEmailAsUsername": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "passwordPolicy": "length(12) and digits(1) and lowerCase(1) and upperCase(1) and specialChars(1)",
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "roles": {
@@ -32,8 +39,8 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "redirectUris": ["http://127.0.0.1:8080/auth/callback"],
-      "webOrigins": ["http://127.0.0.1:8080"],
+      "redirectUris": ["http://127.0.0.1:8080/auth/callback", "http://192.168.1.129:8080/auth/callback"],
+      "webOrigins": ["http://127.0.0.1:8080", "http://192.168.1.129:8080"],
       "attributes": {"pkce.code.challenge.method": "S256"},
       "protocolMappers": [
         {

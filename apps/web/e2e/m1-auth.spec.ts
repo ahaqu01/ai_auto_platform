@@ -9,7 +9,7 @@ test('Keycloak authorization code, BFF cookie, protected API and logout', async 
   test.skip(!username || !password, 'E2E_USERNAME and E2E_PASSWORD are required')
 
   await page.goto('/auth/login?return_to=/')
-  await expect(page.locator('#kc-page-title')).toContainText('Sign in')
+  await expect(page.locator('#kc-page-title')).toContainText('登录')
   await page.locator('#username').fill(username!)
   await page.locator('#password').fill(password!)
   await page.locator('#kc-login').click()
@@ -22,7 +22,7 @@ test('Keycloak authorization code, BFF cookie, protected API and logout', async 
   })
   expect(session.status).toBe(200)
   expect(session.body.authenticated).toBe(true)
-  expect(session.body.user.email).toBe('m1-e2e@example.test')
+  expect(session.body.user.email).toBe(process.env.E2E_EMAIL ?? 'm1-e2e@example.test')
 
   const cookies = await context.cookies()
   const bffCookie = cookies.find((cookie) => cookie.name === 'platform_session')

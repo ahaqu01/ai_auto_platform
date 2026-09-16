@@ -37,6 +37,13 @@ async def login(service: Service, return_to: str = Query("/")) -> RedirectRespon
     )
 
 
+@router.get("/register", status_code=303)
+async def register(service: Service, return_to: str = Query("/")) -> RedirectResponse:
+    return RedirectResponse(
+        await service.registration_url(_return_target(return_to)), status_code=303
+    )
+
+
 @router.get("/callback", status_code=303)
 async def callback(
     code: str, state: str, service: Service, settings: Config

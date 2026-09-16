@@ -10,7 +10,7 @@ onMounted(() => session.loadSession())
 const navigation = [
   { label: '工作台', icon: '⌂', to: '/' },
   { label: '组织与项目', icon: '◇', to: '/workspace', status: '可用' },
-  { label: '数据资产', to: '#', icon: '▤', status: '规划中' },
+  { label: '数据资产', to: '/data-assets', icon: '▤', status: '可用' },
   { label: '智能标注', to: '#', icon: '⌖', status: '规划中' },
   { label: '训练中心', to: '#', icon: '↗', status: '规划中' },
   { label: '模型仓库', to: '#', icon: '⬡', status: '规划中' },
@@ -61,14 +61,15 @@ const navigation = [
           <strong>多模型 · 多芯片 · 真实设备验证</strong>
         </div>
         <div class="topbar-actions">
-          <span class="phase-badge">M1 · Tenant Ready</span>
+          <span class="phase-badge">M2 · Code Ready</span>
           <div v-if="session.user.value" class="session-actions">
             <div class="user-avatar" aria-label="当前用户">{{ session.user.value.displayName.slice(0, 2) }}</div>
             <button type="button" class="button button-secondary" @click="session.logout()">退出</button>
           </div>
-          <button v-else type="button" class="button button-primary" :disabled="session.loading.value" @click="session.login()">
-            登录
-          </button>
+          <div v-else class="session-actions">
+            <button type="button" class="button button-secondary" :disabled="session.loading.value" @click="session.register()">创建账号</button>
+            <button type="button" class="button button-primary" :disabled="session.loading.value" @click="session.login()">登录</button>
+          </div>
         </div>
       </header>
       <main class="app-content">

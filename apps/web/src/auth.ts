@@ -36,6 +36,10 @@ export function login(returnTo = window.location.pathname): void {
   window.location.assign(`/auth/login?return_to=${encodeURIComponent(returnTo)}`)
 }
 
+export function register(returnTo = window.location.pathname): void {
+  window.location.assign(`/auth/register?return_to=${encodeURIComponent(returnTo)}`)
+}
+
 export async function logout(): Promise<void> {
   const response = await fetch('/auth/logout', {
     method: 'POST',
@@ -48,5 +52,5 @@ export async function logout(): Promise<void> {
 }
 
 export function useBrowserSession() {
-  return { user: readonly(user), loading: readonly(loading), loadSession, login, logout }
+  return { user: readonly(user), loading: readonly(loading), loadSession, login, register, logout }
 }

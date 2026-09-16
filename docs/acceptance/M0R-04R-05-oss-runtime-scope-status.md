@@ -1,27 +1,22 @@
 # M0R-04R-05 OSS 运行时范围状态
 
-OSS_RUNTIME_SSRF_STATUS: NOT_IMPLEMENTED_BLOCKING_CLIENT
+OSS_RUNTIME_SSRF_STATUS: RUNTIME_GATEWAY_IMPLEMENTED_OSS_E2E_PENDING
 
 ## 当前事实
 
-平台当前只有 `oss_public_endpoint` / `oss_internal_endpoint` 配置校验，没有 boto3、botocore、aioboto3、MinIO SDK 或自研 OSS HTTP 请求链路。因此目前只能证明：
+M2-CLOSE-01 已实现并装配 `SafeS3Gateway`：S3 Signature V4 仅负责签名，真实网络 I/O 统一经过平台 transport。公网 HTTPS 请求在每次操作时重新解析并验证地址，TCP 固定到已验证 IP，复核实际 socket peer，并保持原 hostname 的 TLS SNI 与证书校验；存储重定向全部拒绝。可信私网 HTTP 只能由显式部署开关启用，且同样固定和复核 peer。
 
-- 公网 IP 字面量与已知 metadata hostname 的配置期拒绝；
-- 可复用 DNS/重定向策略的单元行为；
-- JWKS 客户端的固定 peer 运行时闭环。
+MinIO 运行时已在 Demo 装配并完成真实 Multipart、读取、列举、预签名下载和删除验收。阿里云 OSS 支持的 S3 兼容操作已按 virtual-hosted style 实现，但旧长期 AccessKey 已视为泄露且禁止复用；在轮换为最小权限 RAM/STS 凭据并完成真实 OSS Staging E2E 前，状态保持 `OSS_E2E_PENDING`。
 
-不能据此声称 OSS 请求已经获得运行时 DNS、重定向或 socket peer 防护。
+## 已关闭的原阻断
 
-## 对 M0R-04R-02 的范围修订
+1. 公网地址逐请求解析与验证；
+2. TCP 固定到本次验证 IP并复核 socket peer；
+3. TLS 保持原 hostname 的 SNI 与证书校验；
+4. 不允许存储重定向，避免逐跳策略被绕过；
+5. API 只通过运行时 composition 注入 Gateway，不在路由中实例化 SDK；
+6. 凭据使用 `SecretStr`，异常和日志不输出原始签名、Key、Upload ID 或 SDK 响应体。
 
-M0R-04R-02 验收标准第 4、5 条中的“运行时出站”仅表示可复用策略函数及已接入的 JWKS 客户端，不构成 OSS 客户端运行时证据。其验收记录中的运行时解析/重定向证据同样不得外推到尚不存在的 OSS 请求链路。本文件是该范围的当前修订说明。
+## 尚未关闭
 
-## 解除阻断条件
-
-引入任何 OSS SDK 依赖或在生产代码中消费 `oss_public_endpoint` 前，必须在同一任务中：
-
-1. 在真实请求 transport 边界逐跳解析并验证公网地址；
-2. TCP 固定到本次验证 IP 并复核实际 socket peer；
-3. 保持原 hostname 的 Host、TLS SNI 和证书校验；
-4. 每次重定向重新执行上述过程；
-5. 增加真实客户端出站测试后，原子更新本状态和架构阻断测试。
+阿里云侧旧 Key 废止证明、新最小权限凭据注入、Bucket/CORS 以及真实 OSS E2E 属于 M2-CLOSE-03，不得用 MinIO 结果替代。

@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
-  reporter: [['list'], ['json', { outputFile: 'test-results/m1-e2e-results.json' }]],
+  reporter: [['list'], ['json', { outputFile: process.env.E2E_RESULTS_FILE ?? 'test-results/e2e-results.json' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080',
     trace: 'retain-on-failure',
