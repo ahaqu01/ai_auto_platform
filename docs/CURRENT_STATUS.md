@@ -83,3 +83,10 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 - 故障专项、真实 PostgreSQL RLS、真实 PostgreSQL+OSS 联合状态矩阵、过期签名、全类别敏感日志扫描、并发完成、DB 提交失败恢复及重复 reconcile 均已通过。
 - 全量回归 `309 passed, 1 skipped`，显式授权的真实 OSS 用例单独执行 `1 passed`；提交 `3024674`、`de4992d` 的 CI 均 success。
 - Staging API/维护服务 healthy，维护单轮 `failures=0`，Bucket 对象数 0；临时测试数据库与角色已清理。M2-CLOSE-04 已关闭，M2 总签仍等待 M2-CLOSE-05。
+
+## M2-CLOSE-05（2026-09-16）
+
+- 状态：`STARTED / IN PROGRESS`，前置门禁 M2-CLOSE-01～04 均已关闭。
+- 当前工作范围为资产列表/详情/授权下载产品复核、权威文档一致性治理、M2 总体验收及四方签署。
+- 已确认验收索引、实施计划、M1→M2 交接快照、M2-08 和 CURRENT_STATUS 中存在过期或矛盾描述，纳入本工作包修复。
+- 尚未进行 M2 总签、main 合并和 `m2-accepted` 标签；只有四方签署、main CI 成功后才能创建标签。
