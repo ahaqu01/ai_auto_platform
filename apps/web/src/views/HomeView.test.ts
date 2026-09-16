@@ -17,7 +17,8 @@ describe('HomeView', () => {
     expect(wrapper.findAll('[data-testid="pipeline-stage"]')).toHaveLength(6)
     expect(wrapper.findAll('[data-testid="capability-card"]')).toHaveLength(6)
     expect(wrapper.text()).toContain('M0')
-    expect(wrapper.text()).toContain('待实存 E2E')
+    expect(wrapper.text()).toContain('资产闭环 · 已验收')
+    expect(wrapper.text()).toContain('真实 MinIO / OSS 浏览器 E2E 与故障运维门禁已通过')
     expect(wrapper.text()).toContain('规划中')
   })
 

@@ -50,3 +50,29 @@ it('rejects empty files before creating an upload session', async () => {
   expect(wrapper.get('a-alert-stub').attributes('message')).toBe('不能上传空文件')
   expect(start).not.toHaveBeenCalled()
 })
+
+it('renders asset status, loads details, and gates download by availability', async () => {
+  const available = {
+    id: 'a1', display_name: 'verified.bin', size_bytes: 1024,
+    status: 'AVAILABLE', integrity_status: 'VERIFIED', security_scan_status: 'NOT_REQUIRED',
+    verified_sha256: 'a'.repeat(64), expected_sha256: 'a'.repeat(64),
+  }
+  const quarantined = {
+    ...available, id: 'a2', display_name: 'blocked.bin', status: 'QUARANTINED',
+    integrity_status: 'MISMATCH',
+  }
+  api.listArtifacts.mockResolvedValue({ items: [available, quarantined], next_cursor: null })
+  api.getArtifact.mockResolvedValue(available)
+  const wrapper = mount(AssetsView, { global: { stubs: ['a-alert', 'a-skeleton'] } })
+  await flushPromises()
+  const rows = wrapper.findAll('[data-testid="artifact-row"]')
+  expect(rows).toHaveLength(2)
+  expect(rows[0].text()).toContain('verified.bin')
+  expect(rows[0].text()).toContain('VERIFIED')
+  expect(rows[0].findAll('button')[1].attributes('disabled')).toBeUndefined()
+  expect(rows[1].findAll('button')[1].attributes('disabled')).toBeDefined()
+  await rows[0].findAll('button')[0].trigger('click')
+  await flushPromises()
+  expect(api.getArtifact).toHaveBeenCalledWith('o1', 'p1', 'a1')
+  expect(wrapper.get('[data-testid="artifact-detail"]').text()).toContain('a'.repeat(64))
+})

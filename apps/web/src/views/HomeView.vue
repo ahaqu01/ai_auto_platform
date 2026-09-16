@@ -10,7 +10,7 @@ const now = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit',
 const milestones = [
   { code: 'M0', title: '工程与运行底座', detail: '契约、数据库、迁移、CI、安全门禁与演示环境', percent: 100, state: '已验收' },
   { code: 'M1', title: '身份与租户工作台', detail: 'OIDC、组织、成员、项目、RBAC、审计与 Outbox', percent: 100, state: '已验收' },
-  { code: 'M2', title: '数据资产与对象存储', detail: '上传、Multipart、完整性校验、授权、清理与 Web 闭环', percent: 96, state: '待实存 E2E' },
+  { code: 'M2', title: '数据资产与对象存储', detail: '上传、Multipart、完整性校验、授权、清理与 Web 闭环', percent: 100, state: '已验收' },
 ]
 
 const capabilities = [
@@ -59,8 +59,8 @@ onMounted(async () => {
       </div>
       <div class="mission-card" aria-label="当前建设状态">
         <div class="mission-top"><span>当前阶段</span><b>M2</b></div>
-        <strong>资产闭环 · 代码就绪</strong>
-        <p>真实 MinIO / OSS 浏览器 E2E 待安全环境验收</p>
+        <strong>资产闭环 · 已验收</strong>
+        <p>真实 MinIO / OSS 浏览器 E2E 与故障运维门禁已通过</p>
         <div class="mission-progress"><i></i></div>
         <small>工程底座与租户闭环已验收</small>
       </div>
@@ -101,7 +101,7 @@ onMounted(async () => {
           <li><i class="pass">✓</i><span><b>身份与租户隔离</b><small>Keycloak · RBAC · PostgreSQL RLS</small></span></li>
           <li><i class="pass">✓</i><span><b>可追溯业务写入</b><small>幂等 · 审计 · Outbox · 乐观锁</small></span></li>
           <li><i class="pass">✓</i><span><b>资产完整性</b><small>SHA-256 · Multipart · 生命周期</small></span></li>
-          <li><i class="wait">!</i><span><b>真实存储终验</b><small>MinIO / OSS 浏览器 E2E 待执行</small></span></li>
+          <li><i class="pass">✓</i><span><b>真实存储终验</b><small>MinIO / OSS 浏览器 E2E · 故障与运维闭环</small></span></li>
         </ul>
       </aside>
     </section>
