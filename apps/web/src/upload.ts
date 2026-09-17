@@ -83,7 +83,11 @@ export class UploadController {
     this.aborter?.abort()
     if (this.session) {
       try {
-        await this.api.cancelUpload(this.organizationId, this.projectId, this.session.id)
+        const current = await this.api.getUploadSession(this.organizationId, this.projectId, this.session.id)
+        this.session = current
+        if (!['COMPLETED', 'ABORTED', 'EXPIRED', 'FAILED'].includes(current.status)) {
+          await this.api.cancelUpload(this.organizationId, this.projectId, this.session.id)
+        }
       } catch (cause) {
         this.phase = 'FAILED'
         this.error = describe(cause)

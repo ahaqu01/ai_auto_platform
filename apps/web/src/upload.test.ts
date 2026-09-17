@@ -28,6 +28,20 @@ it('keeps SHA-256 correct across internal read chunks', async () => {
   expect(await sha256File(new File([bytes], 'large.bin'))).toBe(createHash('sha256').update(bytes).digest('hex'))
 })
 describe('UploadController', () => {
+  it('ends a quarantined terminal job locally so a new task can start', async () => {
+    const { api, session } = fixture()
+    api.completeUpload.mockRejectedValueOnce(new Error('CHECKSUM_MISMATCH'))
+    api.getUploadSession.mockResolvedValue({ ...session, status: 'COMPLETED' })
+    const controller = new UploadController(api as never, vi.fn(async () => 'etag'), vi.fn(async () => 'f'.repeat(64)))
+    await controller.start('o1', 'p1', new File(['x'], 'x.bin'))
+    expect(controller.phase).toBe('FAILED')
+    await controller.cancel()
+    expect(controller.phase).toBe('CANCELLED')
+    expect(api.cancelUpload).not.toHaveBeenCalled()
+    await controller.start('o2', 'p2', new File(['y'], 'y.bin'))
+    expect(controller.phase).toBe('COMPLETED')
+    expect(api.createUploadSession).toHaveBeenLastCalledWith('o2', 'p2', expect.objectContaining({ display_name: 'y.bin' }))
+  })
   it('keeps the same completion key when retrying a lost completion response', async () => {
     const { api } = fixture()
     api.completeUpload.mockRejectedValueOnce(new Error('lost response'))
