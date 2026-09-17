@@ -43,7 +43,9 @@ async def begin_idempotent_command(
     route_key: str,
     idempotency_key: str | None,
     request_payload: dict[str, Any],
+    resume_processing: bool = False,
 ) -> IdempotencyDecision:
+    # Only opt in when a resource row lock serializes the entire resumed command.
     if idempotency_key is None:
         raise DomainError("IDEMPOTENCY_KEY_REQUIRED", "必须提供 Idempotency-Key", 428)
     if not 16 <= len(idempotency_key) <= 128:
@@ -86,6 +88,8 @@ async def begin_idempotent_command(
         raise DomainError("IDEMPOTENCY_IN_PROGRESS", "相同幂等请求正在处理", 409)
     if existing.request_hash != request_hash:
         raise DomainError("IDEMPOTENCY_CONFLICT", "相同幂等键对应了不同请求", 409)
+    if resume_processing and existing.state == "PROCESSING":
+        return IdempotencyDecision(existing)
     if (
         existing.state != "COMPLETED"
         or existing.response_status is None

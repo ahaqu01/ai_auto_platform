@@ -183,6 +183,22 @@ async def test_download_available_uses_short_ttl_and_safe_filename(artifact_api)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ttl,expected", [(59, 422), (60, 200), (900, 200), (901, 422), (3600, 422)]
+)
+async def test_download_ttl_contract(artifact_api, ttl, expected):
+    client, factory, storage = artifact_api
+    base, artifact_id, _ = await seed(client, factory)
+    response = await client.post(
+        f"{base}/{artifact_id}:download-url",
+        headers=headers(),
+        json={"expires_in_seconds": ttl},
+    )
+    assert response.status_code == expected
+    assert len(storage.downloads) == (1 if expected == 200 else 0)
+
+
+@pytest.mark.asyncio
 async def test_quarantined_and_outsider_cannot_download(artifact_api):
     client, factory, storage = artifact_api
     base, artifact_id, _ = await seed(

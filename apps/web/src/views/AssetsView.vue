@@ -6,6 +6,9 @@ import { UploadController } from '../upload'
 const organizations = ref<Organization[]>([])
 const projects = ref<Project[]>([])
 const artifacts = ref<Artifact[]>([])
+const nextCursor = ref<string | null>(null)
+const artifactsLoading = ref(false)
+let artifactRequest = 0
 const selectedArtifact = ref<Artifact | null>(null)
 const downloadingId = ref('')
 const organizationId = ref('')
@@ -15,7 +18,8 @@ const loading = ref(true)
 const pageError = ref('')
 const upload = reactive(new UploadController())
 const activeProjects = computed(() => projects.value.filter((project) => project.status === 'ACTIVE'))
-const canStart = computed(() => Boolean(selectedFile.value && organizationId.value && projectId.value && !['HASHING', 'UPLOADING', 'COMPLETING'].includes(upload.phase)))
+const scopeLocked = computed(() => ['HASHING', 'UPLOADING', 'PAUSED', 'COMPLETING'].includes(upload.phase) || (upload.phase === 'FAILED' && Boolean(upload.session)))
+const canStart = computed(() => Boolean(selectedFile.value && organizationId.value && projectId.value && !scopeLocked.value))
 const phaseLabel = computed(() => ({ IDLE: '等待文件', HASHING: '计算摘要', UPLOADING: '正在上传', PAUSED: '已暂停', COMPLETING: '服务端校验', COMPLETED: '上传完成', FAILED: '上传失败', CANCELLED: '已取消' }[upload.phase]))
 
 function describe(cause: unknown): string {
@@ -23,23 +27,38 @@ function describe(cause: unknown): string {
   return cause instanceof Error ? cause.message : '加载失败'
 }
 
-async function loadArtifacts(): Promise<void> {
-  artifacts.value = []
-  selectedArtifact.value = null
-  if (!organizationId.value || !projectId.value) return
+async function loadArtifacts(append = false): Promise<void> {
+  if (append && (artifactsLoading.value || !nextCursor.value)) return
+  const request = ++artifactRequest
+  const org = organizationId.value
+  const project = projectId.value
+  const cursor = append ? nextCursor.value ?? undefined : undefined
+  pageError.value = ''
+  if (!append) { artifacts.value = []; nextCursor.value = null; selectedArtifact.value = null }
+  if (!org || !project) { artifactsLoading.value = false; return }
+  artifactsLoading.value = true
   try {
-    artifacts.value = (await platformApi.listArtifacts(organizationId.value, projectId.value)).items
-  } catch (cause) { pageError.value = describe(cause) }
+    const page = await platformApi.listArtifacts(org, project, cursor)
+    if (request !== artifactRequest) return
+    artifacts.value = append
+      ? Array.from(new Map([...artifacts.value, ...page.items].map((item) => [item.id, item])).values())
+      : page.items
+    nextCursor.value = page.next_cursor
+  } catch (cause) { if (request === artifactRequest) pageError.value = describe(cause) }
+  finally { if (request === artifactRequest) artifactsLoading.value = false }
 }
 
 async function loadProjects(): Promise<void> {
+  const org = organizationId.value
+  projects.value = []
   projectId.value = ''
-  if (!organizationId.value) { projects.value = []; await loadArtifacts(); return }
+  if (!org) return
   try {
-    projects.value = await platformApi.listProjects(organizationId.value)
+    const items = await platformApi.listProjects(org)
+    if (org !== organizationId.value) return
+    projects.value = items
     projectId.value = activeProjects.value[0]?.id ?? ''
-    await loadArtifacts()
-  } catch (cause) { pageError.value = describe(cause) }
+  } catch (cause) { if (org === organizationId.value) pageError.value = describe(cause) }
 }
 
 async function load(): Promise<void> {
@@ -50,7 +69,6 @@ async function load(): Promise<void> {
     organizationId.value = organizations.value.some((item) => item.id === saved)
       ? saved ?? ''
       : organizations.value[0]?.id ?? ''
-    await loadProjects()
   } catch (cause) { pageError.value = describe(cause) }
   finally { loading.value = false }
 }
@@ -66,21 +84,24 @@ function choose(event: Event): void {
 async function start(): Promise<void> {
   if (!selectedFile.value) return
   await upload.start(organizationId.value, projectId.value, selectedFile.value)
-  if (upload.phase === 'COMPLETED') await loadArtifacts()
 }
 
 async function showDetails(artifact: Artifact): Promise<void> {
+  const request = artifactRequest
   pageError.value = ''
-  try { selectedArtifact.value = await platformApi.getArtifact(organizationId.value, projectId.value, artifact.id) }
-  catch (cause) { pageError.value = describe(cause) }
+  try {
+    const detail = await platformApi.getArtifact(organizationId.value, projectId.value, artifact.id)
+    if (request === artifactRequest) selectedArtifact.value = detail
+  } catch (cause) { if (request === artifactRequest) pageError.value = describe(cause) }
 }
 
 async function download(artifact: Artifact): Promise<void> {
+  const request = artifactRequest
   downloadingId.value = artifact.id
   pageError.value = ''
   try {
     const signed = await platformApi.createArtifactDownloadUrl(organizationId.value, projectId.value, artifact.id)
-    window.location.assign(signed.url)
+    if (request === artifactRequest) window.location.assign(signed.url)
   } catch (cause) { pageError.value = describe(cause) }
   finally { downloadingId.value = '' }
 }
@@ -92,7 +113,8 @@ function formatSize(bytes: number): string {
 }
 
 watch(organizationId, loadProjects)
-watch(projectId, loadArtifacts)
+watch(projectId, () => loadArtifacts())
+watch(() => upload.phase, (phase) => { if (phase === 'COMPLETED') void loadArtifacts() })
 onMounted(load)
 </script>
 
@@ -110,11 +132,11 @@ onMounted(load)
       <article class="panel workspace-panel upload-panel">
         <div class="panel-heading"><div><span class="panel-label">UPLOAD</span><h2>创建上传任务</h2></div></div>
         <div class="upload-scope">
-          <label>组织<select v-model="organizationId" :disabled="upload.phase === 'UPLOADING'"><option v-for="item in organizations" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
-          <label>活动项目<select v-model="projectId" :disabled="upload.phase === 'UPLOADING'"><option v-for="item in activeProjects" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+          <label>组织<select v-model="organizationId" :disabled="scopeLocked"><option v-for="item in organizations" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+          <label>活动项目<select v-model="projectId" :disabled="scopeLocked"><option v-for="item in activeProjects" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
         </div>
         <label class="file-drop">
-          <input type="file" aria-label="选择上传文件" @change="choose" />
+          <input type="file" aria-label="选择上传文件" :disabled="scopeLocked" @change="choose" />
           <strong>{{ selectedFile?.name ?? '选择本地文件' }}</strong>
           <span>{{ selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MiB` : '最大 20 GiB；文件内容不会经过 Web 服务转发' }}</span>
         </label>
@@ -136,13 +158,14 @@ onMounted(load)
           <div><dt>资产状态</dt><dd>{{ upload.artifact?.status ?? '—' }}</dd></div>
         </dl>
         <p class="security-note">预签名 URL 仅保存在当前任务内存中，不写入 localStorage、日志或页面文本。</p>
+        <p class="security-note">完整性校验不等于恶意文件扫描；当前资产未执行病毒扫描，不能据此直接用于训练、解压或设备执行。</p>
       </article>
     </section>
 
     <section v-if="!loading" class="panel workspace-panel asset-library">
       <div class="panel-heading">
         <div><span class="panel-label">ARTIFACTS</span><h2>项目资产</h2></div>
-        <button class="button action-secondary" type="button" :disabled="!projectId" @click="loadArtifacts">刷新</button>
+        <button class="button action-secondary" type="button" :disabled="!projectId || artifactsLoading" @click="loadArtifacts()">刷新</button>
       </div>
       <div class="data-list">
         <div v-for="artifact in artifacts" :key="artifact.id" class="data-row artifact-row" data-testid="artifact-row">
@@ -151,14 +174,15 @@ onMounted(load)
           <button class="text-action" type="button" @click="showDetails(artifact)">详情</button>
           <button class="text-action" type="button" :disabled="artifact.status !== 'AVAILABLE' || downloadingId === artifact.id" @click="download(artifact)">下载</button>
         </div>
-        <p v-if="!artifacts.length" class="empty-state">当前项目暂无资产</p>
+        <p v-if="!artifacts.length" class="empty-state">{{ artifactsLoading ? '正在加载资产…' : '当前项目暂无资产' }}</p>
       </div>
+      <button v-if="nextCursor" class="button action-secondary" type="button" data-testid="load-more-assets" :disabled="artifactsLoading" @click="loadArtifacts(true)">{{ artifactsLoading ? '正在加载…' : '加载更多' }}</button>
       <article v-if="selectedArtifact" class="artifact-detail" data-testid="artifact-detail">
         <strong>{{ selectedArtifact.display_name }}</strong>
         <dl class="upload-facts">
           <div><dt>资产状态</dt><dd>{{ selectedArtifact.status }}</dd></div>
           <div><dt>完整性</dt><dd>{{ selectedArtifact.integrity_status }}</dd></div>
-          <div><dt>安全扫描</dt><dd>{{ selectedArtifact.security_scan_status ?? '—' }}</dd></div>
+          <div><dt>安全扫描</dt><dd>{{ selectedArtifact.security_scan_status === 'NOT_REQUIRED' ? '未执行恶意文件扫描' : selectedArtifact.security_scan_status ?? '—' }}</dd></div>
           <div><dt>SHA-256</dt><dd>{{ selectedArtifact.verified_sha256 ?? selectedArtifact.expected_sha256 ?? '—' }}</dd></div>
         </dl>
       </article>

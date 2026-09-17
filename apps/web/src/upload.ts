@@ -1,4 +1,4 @@
-import { ApiError, platformApi, putPresignedPart, type Artifact, type RegisteredPart, type UploadSession } from './platform'
+import { ApiError, platformApi, putPresignedPart, requestId, type Artifact, type RegisteredPart, type UploadSession } from './platform'
 import { sha256File } from './fileHash'
 
 export type UploadPhase = 'IDLE' | 'HASHING' | 'UPLOADING' | 'PAUSED' | 'COMPLETING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
@@ -20,6 +20,7 @@ export class UploadController {
   private projectId = ''
   private registered = new Map<number, RegisteredPart>()
   private aborter: AbortController | null = null
+  private completionKey = ''
 
   constructor(
     private readonly api: UploadApi = platformApi,
@@ -112,7 +113,7 @@ export class UploadController {
     if (this.phase !== 'UPLOADING') return
     this.phase = 'COMPLETING'
     const parts = Array.from(this.registered.values()).sort((left, right) => left.part_number - right.part_number).map(({ part_number, etag }) => ({ part_number, etag }))
-    this.artifact = await this.api.completeUpload(this.organizationId, this.projectId, this.session.id, parts)
+    this.artifact = await this.api.completeUpload(this.organizationId, this.projectId, this.session.id, parts, this.completionKey)
     this.phase = 'COMPLETED'
   }
 
@@ -140,6 +141,7 @@ export class UploadController {
     this.error = ''
     this.artifact = null
     this.session = null
+    this.completionKey = requestId()
   }
 
   private failUnlessPaused(cause: unknown): void {

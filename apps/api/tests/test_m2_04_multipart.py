@@ -121,6 +121,25 @@ async def create_upload(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ttl,expected", [(59, 422), (60, 200), (900, 200), (901, 422), (3600, 422)]
+)
+async def test_upload_signing_ttl_contract(multipart_api, ttl, expected):
+    client, storage = multipart_api
+    base = await create_upload(client)
+    response = await client.post(
+        f"{base}/parts:sign",
+        headers=headers(),
+        json={"part_numbers": [1], "expires_in_seconds": ttl},
+    )
+    assert response.status_code == expected
+    if expected == 200:
+        assert response.json()[0]["expires_in_seconds"] == ttl
+    else:
+        assert storage.starts == 0
+
+
+@pytest.mark.asyncio
 async def test_sign_initializes_once_and_never_exposes_remote_upload_id(multipart_api):
     client, storage = multipart_api
     base = await create_upload(client)

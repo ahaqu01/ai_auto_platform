@@ -18,6 +18,13 @@ describe('requestId', () => {
 })
 
 describe('platformApi', () => {
+  it('encodes asset cursors and preserves the caller completion key', async () => {
+    authenticatedFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) })
+    await platformApi.listArtifacts('o1', 'p1', 'cursor+/=')
+    expect(authenticatedFetch.mock.calls[0][0]).toContain('limit=100&cursor=cursor%2B%2F%3D')
+    await platformApi.completeUpload('o1', 'p1', 'u1', [{ part_number: 1, etag: 'etag' }], 'stable-completion-key')
+    expect(authenticatedFetch.mock.calls[1][1].headers['Idempotency-Key']).toBe('stable-completion-key')
+  })
   it('sends idempotency and optimistic-lock headers', async () => {
     authenticatedFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 'p1', version: 2 }) })
     await platformApi.createProject('o1', { code: 'demo', name: 'Demo' })

@@ -10,7 +10,12 @@ from test_m2_05_completion import FakeStorage, FakeTokenVerifier, headers, prepa
 from platform_api.api.upload_sessions import get_object_storage
 from platform_api.auth.dependencies import get_token_verifier
 from platform_api.common.tenancy import set_tenant_context
-from platform_api.db.models import ArtifactModel, UploadSessionModel, UserModel
+from platform_api.db.models import (
+    ArtifactModel,
+    IdempotencyRecordModel,
+    UploadSessionModel,
+    UserModel,
+)
 from platform_api.db.session import get_session
 from platform_api.main import create_app
 
@@ -18,7 +23,9 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.postgresql]
 
 
 async def tenant(session, base):
-    actor = await session.scalar(select(UserModel.id).where(UserModel.external_subject == "owner"))
+    actor = await session.scalar(
+        select(UserModel.id).where(UserModel.external_subject == "owner")
+    )
     await set_tenant_context(session, UUID(base.split("/")[4]), actor)
 
 
@@ -61,34 +68,54 @@ async def fault_api(postgresql_database):
         yield client, factory, storage, faults
 
 
-async def test_concurrent_complete_publishes_one_artifact(fault_api):
+@pytest.mark.parametrize("shared_key", [False, True])
+async def test_concurrent_complete_publishes_one_artifact(fault_api, shared_key):
     client, factory, storage, _ = fault_api
     base, body = await prepared(client, storage.content)
+    first_headers = headers()
     responses = await asyncio.gather(
-        client.post(f"{base}:complete", headers=headers(), json=body),
-        client.post(f"{base}:complete", headers=headers(), json=body),
+        client.post(f"{base}:complete", headers=first_headers, json=body),
+        client.post(
+            f"{base}:complete",
+            headers=first_headers if shared_key else headers(),
+            json=body,
+        ),
     )
     assert sorted(response.status_code for response in responses) == [200, 201]
     assert responses[0].json()["id"] == responses[1].json()["id"]
     assert storage.completes == 1
     async with factory() as session:
         await tenant(session, base)
-        assert await session.scalar(select(func.count()).select_from(ArtifactModel)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(ArtifactModel)) == 1
+        )
 
 
 async def test_final_commit_failure_remains_completing_and_recovers(fault_api):
     client, factory, storage, faults = fault_api
     base, body = await prepared(client, storage.content)
+    command_headers = headers()
     faults["commit"] = True
-    failed = await client.post(f"{base}:complete", headers=headers(), json=body)
+    failed = await client.post(f"{base}:complete", headers=command_headers, json=body)
     assert failed.status_code == 500
     async with factory() as session:
         await tenant(session, base)
         assert await session.scalar(select(ArtifactModel)) is None
         upload = await session.scalar(select(UploadSessionModel))
         assert upload.status.value == "COMPLETING" and upload.reserved_bytes > 0
-    recovered = await client.post(f"{base}:complete", headers=headers(), json=body)
+        record = await session.scalar(
+            select(IdempotencyRecordModel).where(
+                IdempotencyRecordModel.idempotency_key
+                == command_headers["Idempotency-Key"]
+            )
+        )
+        assert record.state == "PROCESSING" and len(record.route_key) <= 160
+    recovered = await client.post(
+        f"{base}:complete", headers=command_headers, json=body
+    )
     assert recovered.status_code == 201
     async with factory() as session:
         await tenant(session, base)
-        assert await session.scalar(select(func.count()).select_from(ArtifactModel)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(ArtifactModel)) == 1
+        )

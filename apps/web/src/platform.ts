@@ -36,7 +36,7 @@ export type Artifact = {
   size_bytes: number
   status: 'VERIFYING' | 'AVAILABLE' | 'QUARANTINED' | 'FAILED' | 'DELETING' | 'DELETED'
   integrity_status: 'VERIFIED' | 'MISMATCH'
-  security_scan_status?: 'PENDING' | 'CLEAN' | 'INFECTED' | 'FAILED'
+  security_scan_status?: 'NOT_REQUIRED' | 'PENDING' | 'CLEAN' | 'BLOCKED'
   declared_content_type?: string
   expected_sha256?: string
   verified_sha256?: string
@@ -89,9 +89,9 @@ export const platformApi = {
   signUploadParts: (organizationId: string, projectId: string, uploadId: string, partNumbers: number[]) => request<SignedPart[]>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts:sign`, json('POST', { part_numbers: partNumbers, expires_in_seconds: 900 })),
   registerUploadPart: (organizationId: string, projectId: string, uploadId: string, partNumber: number, payload: { etag: string; size_bytes: number }) => request<RegisteredPart>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts/${partNumber}`, json('PUT', payload)),
   listUploadParts: (organizationId: string, projectId: string, uploadId: string) => request<RegisteredPart[]>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}/parts`),
-  completeUpload: (organizationId: string, projectId: string, uploadId: string, parts: { part_number: number; etag: string }[]) => request<Artifact>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}:complete`, json('POST', { parts }, { 'Idempotency-Key': requestId() })),
+  completeUpload: (organizationId: string, projectId: string, uploadId: string, parts: { part_number: number; etag: string }[], idempotencyKey = requestId()) => request<Artifact>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}:complete`, json('POST', { parts }, { 'Idempotency-Key': idempotencyKey })),
   cancelUpload: (organizationId: string, projectId: string, uploadId: string) => request<UploadSession>(`/api/v1/organizations/${organizationId}/projects/${projectId}/upload-sessions/${uploadId}:cancel`, { method: 'POST', headers: { 'Idempotency-Key': requestId() } }),
-  listArtifacts: (organizationId: string, projectId: string) => request<ArtifactPage>(`/api/v1/organizations/${organizationId}/projects/${projectId}/artifacts?limit=100`),
+  listArtifacts: (organizationId: string, projectId: string, cursor?: string) => request<ArtifactPage>(`/api/v1/organizations/${organizationId}/projects/${projectId}/artifacts?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
   getArtifact: (organizationId: string, projectId: string, artifactId: string) => request<Artifact>(`/api/v1/organizations/${organizationId}/projects/${projectId}/artifacts/${artifactId}`),
   createArtifactDownloadUrl: (organizationId: string, projectId: string, artifactId: string) => request<DownloadUrl>(`/api/v1/organizations/${organizationId}/projects/${projectId}/artifacts/${artifactId}:download-url`, json('POST', { expires_in_seconds: 600 })),
   setProjectArchived: (organizationId: string, project: Project, archived: boolean) => request<Project>(`/api/v1/organizations/${organizationId}/projects/${project.id}:${archived ? 'archive' : 'restore'}`, { method: 'POST', headers: { 'If-Match': `"${project.version}"` } }),

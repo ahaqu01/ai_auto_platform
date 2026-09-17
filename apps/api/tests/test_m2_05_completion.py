@@ -13,7 +13,11 @@ from platform_api.auth.dependencies import get_token_verifier
 from platform_api.auth.identity import IdentityClaims
 from platform_api.common.errors import DomainError
 from platform_api.db.base import Base
-from platform_api.db.models import ArtifactModel, UploadSessionModel
+from platform_api.db.models import (
+    ArtifactModel,
+    IdempotencyRecordModel,
+    UploadSessionModel,
+)
 from platform_api.db.session import get_session
 from platform_api.main import create_app
 from platform_api.modules.artifact.storage import (
@@ -268,3 +272,79 @@ async def test_size_mismatch_is_quarantined(completion_api):
     async with factory() as session:
         artifact = await session.scalar(select(ArtifactModel))
     assert artifact.status.value == "QUARANTINED"
+
+
+@pytest.mark.asyncio
+async def test_completion_key_is_persisted_and_payload_conflicts(completion_api):
+    client, factory, storage = completion_api
+    base, body = await prepared(client, storage.content)
+    key = "completion-conflict-key"
+    first = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    changed = {"parts": [{"part_number": 1, "etag": "changed"}]}
+    conflict = await client.post(f"{base}:complete", headers=headers(key), json=changed)
+    assert first.status_code == 201
+    assert (
+        conflict.status_code == 409
+        and conflict.json()["code"] == "IDEMPOTENCY_CONFLICT"
+    )
+    assert storage.completes == 1
+    async with factory() as session:
+        record = await session.scalar(
+            select(IdempotencyRecordModel).where(
+                IdempotencyRecordModel.idempotency_key == key
+            )
+        )
+        assert record.state == "COMPLETED" and record.response_status == 201
+        assert record.response_body["id"] == first.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_same_completion_key_resumes_after_durable_checkpoint_failure(
+    completion_api,
+):
+    client, factory, storage = completion_api
+    base, body = await prepared(client, storage.content)
+    key = "completion-resume-key"
+    storage.complete_error = storage.head_error = StorageErrorCode.TIMEOUT
+    failed = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    assert failed.status_code == 503
+    async with factory() as session:
+        record = await session.scalar(
+            select(IdempotencyRecordModel).where(
+                IdempotencyRecordModel.idempotency_key == key
+            )
+        )
+        assert record.state == "PROCESSING"
+    conflict = await client.post(
+        f"{base}:complete",
+        headers=headers(key),
+        json={"parts": [{"part_number": 1, "etag": "changed"}]},
+    )
+    assert conflict.json()["code"] == "IDEMPOTENCY_CONFLICT"
+    storage.complete_error = storage.head_error = None
+    recovered = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    replay = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    assert recovered.status_code == 201 and replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert recovered.json() == replay.json()
+    assert storage.completes == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size_mismatch", [False, True])
+async def test_quarantine_replay_preserves_terminal_error(
+    completion_api, size_mismatch
+):
+    client, _, storage = completion_api
+    base, body = await prepared(
+        client,
+        storage.content,
+        expected_size=len(storage.content) + 1 if size_mismatch else None,
+        expected_sha=None if size_mismatch else "0" * 64,
+    )
+    key = "quarantine-replay-key"
+    first = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    replay = await client.post(f"{base}:complete", headers=headers(key), json=body)
+    assert first.status_code == replay.status_code == 409
+    assert replay.json() == first.json()
+    assert storage.completes == 1

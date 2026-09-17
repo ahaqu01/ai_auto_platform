@@ -16,6 +16,7 @@ from platform_api.api.organization_access import require_organization_member
 from platform_api.auth.dependencies import CurrentUser
 from platform_api.common.api_contract import (
     PROTECTED_ERROR_RESPONSES,
+    ProblemDetails,
     StrictModel,
     StrictOrmModel,
 )
@@ -122,7 +123,7 @@ class UploadSessionRead(StrictOrmModel):
 
 class UploadPartSignRequest(StrictModel):
     part_numbers: list[int] = Field(min_length=1, max_length=100)
-    expires_in_seconds: int = Field(default=900, ge=60, le=3600)
+    expires_in_seconds: int = Field(default=900, ge=60, le=900)
 
     @field_validator("part_numbers")
     @classmethod
@@ -623,6 +624,26 @@ async def list_upload_parts(
     )
 
 
+def _completion_result(
+    artifact: ArtifactModel, upload: UploadSessionModel, request: Request
+):
+    if artifact.size_bytes != upload.expected_size:
+        code, detail = "SIZE_MISMATCH", "对象大小与上传声明不一致"
+    elif artifact.verified_sha256 != upload.expected_sha256:
+        code, detail = "CHECKSUM_MISMATCH", "对象摘要与上传声明不一致"
+    else:
+        return 201, ArtifactRead.model_validate(artifact).model_dump(mode="json")
+    return 409, ProblemDetails(
+        type=f"https://docs.example.com/problems/{code.lower()}",
+        title=detail,
+        status=409,
+        code=code,
+        detail=detail,
+        instance=request.url.path,
+        traceId=request.state.trace_id,
+    ).model_dump()
+
+
 @router.post(
     "/{upload_id}:complete",
     response_model=ArtifactRead,
@@ -659,21 +680,32 @@ async def complete_upload_session(
     )
     if upload is None:
         raise DomainError("UPLOAD_SESSION_NOT_FOUND", "上传会话不存在或无权访问", 404)
+    decision = await begin_idempotent_command(
+        session,
+        actor_id=current_user.id,
+        route_key=f"upload_session.complete:{upload_id}",
+        idempotency_key=idempotency_key,
+        request_payload=payload.model_dump(mode="json"),
+        resume_processing=True,
+    )
+    if decision.is_replay:
+        return JSONResponse(
+            status_code=200
+            if decision.replay_status == 201
+            else decision.replay_status,
+            content=decision.replay_body,
+            headers={"Idempotent-Replayed": "true"},
+        )
     existing = await session.scalar(
         select(ArtifactModel).where(ArtifactModel.upload_session_id == upload.id)
     )
-    if upload.status is UploadSessionStatus.COMPLETED and existing is not None:
-        return JSONResponse(
-            status_code=200,
-            content=ArtifactRead.model_validate(existing).model_dump(mode="json"),
-            headers={"Idempotent-Replayed": "true"},
-        )
     if _expire_if_needed(upload, datetime.now(UTC)):
         await session.commit()
         raise DomainError("UPLOAD_EXPIRED", "上传会话已过期", 409)
     if upload.status not in {
         UploadSessionStatus.UPLOADING,
         UploadSessionStatus.COMPLETING,
+        UploadSessionStatus.COMPLETED,
     }:
         raise DomainError("UPLOAD_STATE_CONFLICT", "上传会话状态不允许完成", 409)
     if not upload.storage_upload_id:
@@ -695,6 +727,18 @@ async def complete_upload_session(
     ):
         raise DomainError("PART_LIST_MISMATCH", "提交的分片清单或总大小不完整", 409)
 
+    if upload.status is UploadSessionStatus.COMPLETED and existing is not None:
+        result_status, result_body = _completion_result(existing, upload, request)
+        complete_idempotent_command(
+            decision, response_status=result_status, response_body=result_body
+        )
+        await session.commit()
+        return JSONResponse(
+            status_code=200 if result_status == 201 else result_status,
+            content=result_body,
+            headers={"Idempotent-Replayed": "true"},
+        )
+
     if upload.status is UploadSessionStatus.UPLOADING:
         upload.status = UploadSessionStatus.COMPLETING
         await session.commit()
@@ -712,9 +756,14 @@ async def complete_upload_session(
         select(ArtifactModel).where(ArtifactModel.upload_session_id == upload.id)
     )
     if upload.status is UploadSessionStatus.COMPLETED and existing is not None:
+        result_status, result_body = _completion_result(existing, upload, request)
+        complete_idempotent_command(
+            decision, response_status=result_status, response_body=result_body
+        )
+        await session.commit()
         return JSONResponse(
-            status_code=200,
-            content=ArtifactRead.model_validate(existing).model_dump(mode="json"),
+            status_code=200 if result_status == 201 else result_status,
+            content=result_body,
             headers={"Idempotent-Replayed": "true"},
         )
     port = _storage_required(storage)
@@ -804,16 +853,14 @@ async def complete_upload_session(
         trace_id=trace_id,
         payload=detail,
     )
+    result_status, result_body = _completion_result(artifact, upload, request)
+    complete_idempotent_command(
+        decision, response_status=result_status, response_body=result_body
+    )
     await session.commit()
-    await set_tenant_context(session, organization_id, current_user.id)
-    await session.refresh(artifact)
-    if not size_matches:
-        raise DomainError("SIZE_MISMATCH", "对象大小与上传声明不一致", 409)
-    if not checksum_matches:
-        raise DomainError("CHECKSUM_MISMATCH", "对象摘要与上传声明不一致", 409)
     return JSONResponse(
-        status_code=201,
-        content=ArtifactRead.model_validate(artifact).model_dump(mode="json"),
+        status_code=result_status,
+        content=result_body,
         headers={"Idempotent-Replayed": "false", "ETag": f'"{artifact.version}"'},
     )
 

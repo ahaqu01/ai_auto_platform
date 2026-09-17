@@ -72,7 +72,7 @@ class ArtifactPage(StrictModel):
 
 
 class DownloadUrlRequest(StrictModel):
-    expires_in_seconds: int = Field(default=600, ge=60, le=3600)
+    expires_in_seconds: int = Field(default=600, ge=60, le=900)
 
 
 class DownloadUrlRead(StrictModel):

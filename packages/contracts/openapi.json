@@ -176,7 +176,7 @@
         "properties": {
           "expires_in_seconds": {
             "default": 600,
-            "maximum": 3600.0,
+            "maximum": 900.0,
             "minimum": 60.0,
             "title": "Expires In Seconds",
             "type": "integer"
@@ -907,7 +907,7 @@
         "properties": {
           "expires_in_seconds": {
             "default": 900,
-            "maximum": 3600.0,
+            "maximum": 900.0,
             "minimum": 60.0,
             "title": "Expires In Seconds",
             "type": "integer"

@@ -12,7 +12,7 @@ function fixture() {
     signUploadParts: vi.fn(async (_o, _p, _u, numbers: number[]) => numbers.map((part_number) => ({ part_number, url: `https://storage.test/${part_number}?signature=secret`, expires_in_seconds: 900 }))),
     registerUploadPart: vi.fn(async (_o, _p, _u, part_number: number, body) => ({ part_number, etag: body.etag, size_bytes: body.size_bytes, created_at: '', updated_at: '' })),
     listUploadParts: vi.fn(async () => []),
-    completeUpload: vi.fn(async (_organizationId: string, _projectId: string, _uploadId: string, _parts: { part_number: number; etag: string }[]) => ({ id: 'a1', display_name: 'data.bin', size_bytes: 1, status: 'AVAILABLE', integrity_status: 'VERIFIED', version: 1 })),
+    completeUpload: vi.fn(async (_organizationId: string, _projectId: string, _uploadId: string, _parts: { part_number: number; etag: string }[], _idempotencyKey?: string) => ({ id: 'a1', display_name: 'data.bin', size_bytes: 1, status: 'AVAILABLE', integrity_status: 'VERIFIED', version: 1 })),
     cancelUpload: vi.fn(async () => ({ ...session, status: 'ABORTED' })),
   }
   return { api, session }
@@ -28,6 +28,18 @@ it('keeps SHA-256 correct across internal read chunks', async () => {
   expect(await sha256File(new File([bytes], 'large.bin'))).toBe(createHash('sha256').update(bytes).digest('hex'))
 })
 describe('UploadController', () => {
+  it('keeps the same completion key when retrying a lost completion response', async () => {
+    const { api } = fixture()
+    api.completeUpload.mockRejectedValueOnce(new Error('lost response'))
+    const controller = new UploadController(api as never, vi.fn(async () => 'etag'), vi.fn(async () => 'e'.repeat(64)))
+    await controller.start('o1', 'p1', new File(['x'], 'x.bin'))
+    expect(controller.phase).toBe('FAILED')
+    await controller.resume()
+    expect(controller.phase).toBe('COMPLETED')
+    const keys = api.completeUpload.mock.calls.map((call) => call[4])
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).toBe(keys[0])
+  })
   it('uploads multiple parts, registers ETags and completes in order', async () => {
     const { api } = fixture()
     const put = vi.fn(async (_url, body: Blob, _signal, progress) => { progress(body.size); return `etag-${put.mock.calls.length}` })
