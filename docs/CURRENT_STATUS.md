@@ -104,3 +104,5 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 状态 `FUNCTIONAL ACCEPTED / P2-SEC-02 OPEN`。`fa74c93` 修复签名上限合同、资产分页、完成命令幂等；`52a552d` 增加真实 OSS 101 资产专项；两个提交 CI 均 success。API 295 passed/32 deselected、Web 27 passed/build 成功；Staging 专项 `1 passed (1.3m)`，第 101 个资产详情下载、TTL 900/901 边界、同 key 重放/不同清单冲突通过。临时用户/组织/对象已清理，平台前缀对象、资产/上传会话数均 0，受限数据库身份和维护运行再次通过。
 
 上传范围锁定、Web 扫描枚举与中文扫描边界提示已修复。长期 RAM Key 未迁移到真实 STS，缺专用角色 ARN/可信签发方式和刷新验收；风险处置未批准，因此本 P2 门禁整体未关闭。详见 P2 修复开发文档、验收记录和 OSS STS 清单。全量复验/四方复签仍待后续门禁，Demo/main/历史标签不变。
+
+终态恢复补丁 `8979ecb`、Web 28 passed/build、CI `35180232766` success；真实 OSS“隔离失败 → 结束任务 → 新上传” `1 passed (6.2s)`，临时资源再次清理。此补丁不改变 STS 安全项 OPEN 状态。

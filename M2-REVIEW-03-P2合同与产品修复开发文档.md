@@ -28,6 +28,8 @@ API 上传与下载签名允许 60～900 秒，默认分别为 900/600，与现�
 
 HASHING/UPLOADING/PAUSED/COMPLETING 期间锁定组织、项目和文件；可恢复的 FAILED 会话也锁定范围，先取消再开始新任务。同步 Web 扫描状态枚举为后端实际值 NOT_REQUIRED/PENDING/CLEAN/BLOCKED；显示“未执行恶意文件扫描”和“完整性校验不等于恶意文件扫描”。ADR 明确 AVAILABLE 不是训练、解压、设备执行的充分条件，M3 消费者须执行独立内容安全门禁；尚未宣称部署了病毒扫描器。
 
+终态恢复补丁：取消先读取服务端状态；COMPLETED/ABORTED/EXPIRED/FAILED 只结束本地任务，活动会话仍正常取消远端。已生成的资产不因此被删除，避免隔离错误后无法解除 FAILED 范围锁。
+
 ## 验收标准
 
 1. 上传/下载 59/60/900/901/3600 秒边界、OpenAPI 漂移检查通过。
@@ -41,6 +43,7 @@ HASHING/UPLOADING/PAUSED/COMPLETING 期间锁定组织、项目和文件；可�
 - `fa74c93`：合同、幂等、分页、范围和扫描提示实现；专项 API 31 passed，API 非 PostgreSQL 295 passed/32 deselected，Web 27 passed、构建通过。
 - CI [35179387752](https://github.com/ahaqu01/ai_auto_platform/actions/runs/35179387752)：baseline、PostgreSQL、security success，包含新增同 key 并发/提交失败恢复测试和受限身份生命周期。
 - `52a552d`：真实 OSS 101 资产产品/合同验收脚本；CI [35179580912](https://github.com/ahaqu01/ai_auto_platform/actions/runs/35179580912) success。
+- `8979ecb`：FAILED 终态任务结束修复；Web 28 passed/build 成功，CI [35180232766](https://github.com/ahaqu01/ai_auto_platform/actions/runs/35180232766) success。真实 OSS 浏览器“隔离失败 → 结束任务 → 再上传” `1 passed (6.2s)`；临时资源清理，平台前缀对象、资产和会话数再核查为 0。
 - Staging 专项 Chromium `1 passed (1.3m)`：101 个真实 OSS 小对象，不是模拟列表；最旧资产在第 101 行加载后可查看 VERIFIED、下载字节一致；60/900 秒真实下载成功、901/3600 秒 422；同 key 重放和不同清单冲突成功。
 - 切换前数据库快照：`/home/diffgram/.config/ai-auto-platform/backup-m2-p2-20260917/staging.dump`，目录 0700、文件 0600。旧受限运行镜像 `aiap-m2-p2-backup:api/maintenance/web` 保留；原数据库身份和外部配置没有变化。
 

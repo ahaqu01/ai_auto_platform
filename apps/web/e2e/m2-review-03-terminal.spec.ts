@@ -1,0 +1,41 @@
+import { expect, test } from '@playwright/test'
+
+test('P2：隔离错误后结束终态任务并重新上传', async ({ page }) => {
+  test.skip(process.env.E2E_ENVIRONMENT !== 'staging', 'explicit Staging required')
+  test.skip(!process.env.E2E_USERNAME || !process.env.E2E_PASSWORD, 'ephemeral credentials required')
+  test.setTimeout(120_000)
+  const runId = process.env.E2E_RUN_ID!
+  await page.goto('/auth/login?return_to=/workspace')
+  await page.locator('#username').fill(process.env.E2E_USERNAME!)
+  await page.locator('#password').fill(process.env.E2E_PASSWORD!)
+  await page.locator('#kc-login').click()
+  await page.waitForURL('**/workspace')
+  await page.getByLabel('组织名称').fill(`M2-CLOSE-03-${runId}`)
+  await page.getByRole('button', { name: '创建', exact: true }).click()
+  await expect(page.getByText('组织已创建')).toBeVisible()
+  await page.getByLabel('项目编码').fill(`terminal-${runId}`.slice(0, 48))
+  await page.getByLabel('项目名称').fill('P2 终态恢复验收')
+  await page.getByRole('button', { name: '新建' }).click()
+  await expect(page.getByText('项目已创建')).toBeVisible()
+  await page.getByRole('link', { name: /数据资产/ }).click()
+  await page.route('**/upload-sessions', async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON()
+      await route.continue({ postData: JSON.stringify({ ...body, sha256: '0'.repeat(64) }) })
+    } else { await route.continue() }
+  })
+  await page.getByLabel('选择上传文件').setInputFiles({ name: 'quarantined.bin', mimeType: 'application/octet-stream', buffer: Buffer.from('quarantine-test') })
+  await page.getByRole('button', { name: '开始上传' }).click()
+  await expect(page.locator('.upload-phase')).toHaveText('上传失败')
+  await expect(page.locator('.upload-scope select').first()).toBeDisabled()
+  await page.unroute('**/upload-sessions')
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(page.locator('.upload-phase')).toHaveText('已取消')
+  await expect(page.locator('.upload-scope select').first()).toBeEnabled()
+  await expect(page.getByLabel('选择上传文件')).toBeEnabled()
+  await page.getByLabel('选择上传文件').setInputFiles({ name: 'next-task.bin', mimeType: 'application/octet-stream', buffer: Buffer.from('valid-next-task') })
+  await page.getByRole('button', { name: '开始上传' }).click()
+  await expect(page.locator('.upload-phase')).toHaveText('上传完成')
+  const row = page.getByTestId('artifact-row').filter({ hasText: 'next-task.bin' })
+  await expect(row).toContainText('可用')
+})
