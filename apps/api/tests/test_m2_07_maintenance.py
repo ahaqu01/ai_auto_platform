@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
@@ -402,11 +402,37 @@ async def test_orphan_cursor_reaches_objects_after_known_batches(setup):
         StorageObjectRef(key, now - timedelta(days=2)) for key in keys
     ]
 
-    service = ArtifactMaintenanceService(
-        factory, storage, batch_size=2, now=lambda: now
-    )
-    await service.run_once()
-    await service.run_once()
-    await service.run_once()
+    for _ in range(3):
+        # New service instances simulate worker restarts between batches.
+        await ArtifactMaintenanceService(
+            factory, storage, batch_size=2, now=lambda: now
+        ).run_once()
 
     assert storage.deleted == [keys[4]]
+
+
+@pytest.mark.asyncio
+async def test_failed_head_batches_do_not_starve_later_missing_artifacts(setup):
+    factory, storage, now, ids = setup
+    rows = []
+    async with factory() as db:
+        for index in range(5):
+            key = f"v1/o/{index + 1:032x}"
+            up = upload(ids, now, key)
+            row = artifact(ids, up, key, ArtifactStatus.AVAILABLE)
+            # Deterministic UUID order places the missing object last.
+            row.id = UUID(int=index + 1)
+            rows.append(row)
+            db.add_all([up, row])
+        await db.commit()
+    storage.head_errors.update(row.object_key for row in rows[:4])
+    storage.missing.add(rows[4].object_key)
+    for iteration in range(3):
+        clock = now + timedelta(seconds=iteration)
+        await ArtifactMaintenanceService(
+            factory, storage, batch_size=2, now=lambda clock=clock: clock
+        ).run_once()
+    assert set(storage.heads) == {row.object_key for row in rows}
+    async with factory() as db:
+        missing = await db.get(ArtifactModel, rows[4].id)
+        assert missing.status == ArtifactStatus.FAILED

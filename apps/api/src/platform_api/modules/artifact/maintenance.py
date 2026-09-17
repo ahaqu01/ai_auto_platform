@@ -210,18 +210,20 @@ class ArtifactMaintenanceService:
             )
             work = [(x.id, x.object_key) for x in rows]
         for row_id, key in work:
+            # Persist attempts, not only successful HEADs: a failing first batch
+            # must not starve later artifacts, including across worker restarts.
+            async with self._sessions() as db:
+                await db.execute(
+                    update(ArtifactModel)
+                    .where(
+                        ArtifactModel.id == row_id,
+                        ArtifactModel.status == ArtifactStatus.AVAILABLE,
+                    )
+                    .values(last_reconciled_at=now)
+                )
+                await db.commit()
             try:
                 await self._storage.head(key)
-                async with self._sessions() as db:
-                    await db.execute(
-                        update(ArtifactModel)
-                        .where(
-                            ArtifactModel.id == row_id,
-                            ArtifactModel.status == ArtifactStatus.AVAILABLE,
-                        )
-                        .values(last_reconciled_at=now)
-                    )
-                    await db.commit()
                 continue
             except ObjectStorageError as exc:
                 if exc.code != StorageErrorCode.NOT_FOUND:
