@@ -88,6 +88,19 @@ jobs:
             --cov-report=json:coverage/m1.json --cov-report=term:skip-covered -q
           .venv/bin/python scripts/check_m1_coverage.py coverage/m1.json
 
+      - name: Restricted service identity integration
+        env:
+          PGPASSWORD: ci-admin-only
+          APP_ENV: test
+          PYTHONPATH: apps/api/src
+          IDENTITY_TEST_DATABASE_URL: postgresql+psycopg://platform:identity-disposable-test-only@127.0.0.1:5432/platform_identity_split_test
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE platform LOGIN SUPERUSER PASSWORD 'identity-disposable-test-only';
+          CREATE DATABASE platform_identity_split_test OWNER platform;
+          SQL
+          .venv/bin/python scripts/verify_database_identity_split.py
+
   security:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

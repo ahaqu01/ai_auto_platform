@@ -26,6 +26,7 @@ from platform_api.common.reliability import (
     record_audit,
     record_outbox,
 )
+from platform_api.common.tenancy import set_tenant_context
 from platform_api.db.models import (
     OrganizationMemberModel,
     ProjectMemberModel,
@@ -221,7 +222,10 @@ def _check_version(project: ProjectModel, if_match: str | None) -> None:
         raise DomainError("VERSION_MISMATCH", "项目版本已变化，请刷新后重试", 412)
 
 
-async def _commit_project(session: AsyncSession, project: ProjectModel) -> ProjectModel:
+async def _commit_project(
+    session: AsyncSession, project: ProjectModel, actor_id: UUID
+) -> ProjectModel:
+    organization_id = project.organization_id
     try:
         await session.commit()
     except StaleDataError as exc:
@@ -232,6 +236,7 @@ async def _commit_project(session: AsyncSession, project: ProjectModel) -> Proje
     except IntegrityError as exc:
         await session.rollback()
         raise DomainError("PROJECT_CODE_EXISTS", "项目编码已存在", 409) from exc
+    await set_tenant_context(session, organization_id, actor_id)
     await session.refresh(project)
     return project
 
@@ -308,7 +313,7 @@ async def create_project(
     )
     body = ProjectRead.model_validate(project).model_dump(mode="json")
     complete_idempotent_command(decision, response_status=201, response_body=body)
-    await _commit_project(session, project)
+    await _commit_project(session, project, current_user.id)
     response.headers["ETag"] = _etag(project.version)
     return JSONResponse(
         status_code=201,
@@ -397,7 +402,7 @@ async def update_project(
         project.description = (
             payload.description.strip() if payload.description else None
         )
-    await _commit_project(session, project)
+    await _commit_project(session, project, current_user.id)
     response.headers["ETag"] = _etag(project.version)
     return project
 
@@ -444,7 +449,7 @@ async def _change_status(
         trace_id=trace_id,
         payload={"status": target.value},
     )
-    return await _commit_project(session, project)
+    return await _commit_project(session, project, actor_id)
 
 
 @router.post("/{project_id}:archive", response_model=ProjectRead)
@@ -510,7 +515,7 @@ async def delete_project(
     )
     _check_version(project, if_match)
     project.deleted_at = datetime.now(UTC)
-    await _commit_project(session, project)
+    await _commit_project(session, project, current_user.id)
     return Response(status_code=204)
 
 
@@ -570,6 +575,7 @@ async def add_project_member(
     except IntegrityError as exc:
         await session.rollback()
         raise DomainError("PROJECT_MEMBER_EXISTS", "项目成员已存在", 409) from exc
+    await set_tenant_context(session, organization_id, current_user.id)
     await session.refresh(member)
     return member
 
@@ -602,6 +608,7 @@ async def update_project_member(
         role=payload.role,
     )
     await session.commit()
+    await set_tenant_context(session, organization_id, current_user.id)
     await session.refresh(member)
     return member
 

@@ -321,7 +321,7 @@ async def test_project_visibility_and_admin_matrix(monkeypatch) -> None:
     ],
 )
 async def test_project_commit_maps_database_conflicts(error, code) -> None:
-    project = SimpleNamespace()
+    project = SimpleNamespace(organization_id=uuid4())
     session = FakeSession()
 
     async def fail_commit():
@@ -329,6 +329,6 @@ async def test_project_commit_maps_database_conflicts(error, code) -> None:
 
     session.commit = fail_commit
     with pytest.raises(DomainError) as caught:
-        await _commit_project(session, project)
+        await _commit_project(session, project, uuid4())
     assert caught.value.code == code
     assert session.rollbacks == 1

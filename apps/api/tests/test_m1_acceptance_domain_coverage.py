@@ -13,6 +13,9 @@ from platform_api.modules.organization.domain import OrganizationRole
 
 
 class FakeSession:
+    def get_bind(self):
+        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+
     def __init__(self, *, scalar_values=(), get_values=()) -> None:
         self.scalar_values = list(scalar_values)
         self.get_values = list(get_values)

@@ -300,6 +300,7 @@ async def create_invite(
     except IntegrityError as exc:
         await session.rollback()
         raise DomainError("INVITE_CONFLICT", "邀请创建冲突", 409) from exc
+    await set_tenant_context(session, organization_id, current_user.id)
     await session.refresh(invite)
     return _invite_read(invite, token)
 

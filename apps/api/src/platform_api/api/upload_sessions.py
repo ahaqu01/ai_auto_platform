@@ -441,6 +441,7 @@ async def get_upload_session(
             payload=detail,
         )
         await session.commit()
+        await set_tenant_context(session, organization_id, current_user.id)
         await session.refresh(upload)
     return upload
 

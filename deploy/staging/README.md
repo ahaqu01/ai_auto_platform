@@ -1,36 +1,31 @@
-# Staging 工程基线
+# Staging 隔离环境
 
-> Owner：交付负责人
-> 状态：M1 身份化可信局域网集成环境
+仅用于受控内网验收，不代表生产部署。Demo 数据卷及服务不在本流程范围。
 
-该 Compose 工程与 Demo 使用独立的 PostgreSQL、Redis、MinIO 和 Keycloak 数据卷，支持 M1 的 Keycloak Authorization Code、BFF 会话、Web、API 与租户授权验收。
+## 数据库身份
 
-环境密钥必须写入仓库外文件 `/home/diffgram/.config/ai-auto-platform/staging.env`，权限为 `0600`；禁止提交真实值。首次从旧 Staging 数据卷升级时，应确认受限角色 `platform_runtime` 已按 `deploy/postgres/01-runtime-role.sql` 创建并授权给数据库 owner。
+- `platform`：仅 PostgreSQL 与迁移容器持有管理员凭证。
+- `platform_api`：受限登录，继承 `platform_runtime`；租户数据受 FORCE RLS 约束。
+- `platform_maintenance`：受限登录，只允许资产维护所需表和 SYSTEM 事件，不继承 API 身份。
 
-## 启动
+先备份数据库、角色和原配置，执行 Alembic 升级与 `deploy/postgres/02-service-roles.sql`，然后在管理员可信执行环境运行：
 
 ```bash
-STAGING_ENV_FILE=/home/diffgram/.config/ai-auto-platform/staging.env \
-docker compose --env-file /home/diffgram/.config/ai-auto-platform/staging.env \
+APP_ENV=local PYTHONPATH=apps/api/src .venv/bin/python scripts/split_staging_service_env.py \
+  --source-env /home/diffgram/.config/ai-auto-platform/staging.env \
+  --output-dir /home/diffgram/.config/ai-auto-platform/staging-split
+docker compose --env-file /home/diffgram/.config/ai-auto-platform/staging-split/compose.env \
+  -f deploy/staging/docker-compose.yml config --quiet
+docker compose --env-file /home/diffgram/.config/ai-auto-platform/staging-split/compose.env \
   -f deploy/staging/docker-compose.yml up -d --build
 ```
 
-入口默认为 `http://127.0.0.1:8081/`。当前入口仅用于服务器本机或 SSH 隧道内的可信局域网验收，因尚未配置外部 TLS/DNS，环境使用 `APP_ENV=local` 的 HTTP 校验语义。不得将该入口作为公网生产部署。
+生成目录权限为 0700，六份服务配置和路径索引为 0600；不得提交真实配置。脚本拒绝覆盖已有目录，避免隐式轮转。源配置仍需保留并限制权限，作为回滚材料；不要将它注入 API 或维护容器。禁止打印完整 Compose 配置或容器环境。
 
-## 验收
+API/维护配置不包含 PostgreSQL、Keycloak 管理员凭证。维护服务也不持有 BFF 客户端密钥。迁移容器完成后退出；管理员配置仅授予部署操作人员。
 
-```bash
-STAGING_BASE_URL=http://127.0.0.1:8081 bash scripts/smoke_staging.sh
+## 验收和回滚
 
-E2E_ENVIRONMENT=staging E2E_USERNAME=m1-e2e-staging \
-E2E_EMAIL=m1-e2e@example.test E2E_PASSWORD='<ephemeral>' \
-bash scripts/manage_demo_e2e_user.sh create
+执行 `scripts/verify_database_identity_split.py` 时必须使用独立数据库 `platform_identity_split_test`，不得使用 Staging/Demo 数据库。再执行 `STAGING_BASE_URL=http://127.0.0.1:8081 bash scripts/smoke_staging.sh` 和 Staging 登录、资产真实存储 E2E。
 
-E2E_USERNAME=m1-e2e-staging E2E_PASSWORD='<ephemeral>' \
-E2E_BASE_URL=http://127.0.0.1:8081 npm --prefix apps/web run test:e2e
-
-E2E_ENVIRONMENT=staging E2E_USERNAME=m1-e2e-staging \
-bash scripts/manage_demo_e2e_user.sh delete
-```
-
-E2E 用户必须以 `m1-e2e` 为前缀，并在验收后删除。不要使用 `docker compose down -v`，否则会删除 Staging 数据卷。
+验证运行身份、禁止角色切换、跨租户隔离、SYSTEM 事件及容器环境键；健康检查不能代替业务验收。回滚使用备份的旧 Compose 文件、原配置与旧镜像，仅替换 Staging API/维护服务；不要 `down -v`。新增字段可保留，数据库恢复必须另行评估数据损失。

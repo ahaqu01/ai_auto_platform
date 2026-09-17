@@ -7,7 +7,7 @@ x-logging: &default-logging
 services:
   postgres:
     image: postgres:16.4-alpine
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
+    env_file: ${STAGING_DATABASE_ENV_FILE:?set STAGING_DATABASE_ENV_FILE}
     volumes:
       - staging-postgres-data:/var/lib/postgresql/data
       - ../postgres/01-runtime-role.sql:/docker-entrypoint-initdb.d/01-runtime-role.sql:ro
@@ -34,7 +34,7 @@ services:
   minio:
     image: minio/minio:RELEASE.2025-07-23T15-54-02Z
     command: server /data --console-address :9001
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
+    env_file: ${STAGING_STORAGE_ENV_FILE:?set STAGING_STORAGE_ENV_FILE}
     volumes: [staging-minio-data:/data]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
@@ -47,7 +47,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.3.3
     command: ["start-dev", "--import-realm", "--http-relative-path=/auth", "--health-enabled=true"]
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
+    env_file: ${STAGING_IDENTITY_ENV_FILE:?set STAGING_IDENTITY_ENV_FILE}
     environment:
       KC_HOSTNAME: http://127.0.0.1:${STAGING_HTTP_PORT:-8081}/auth
       KC_HOSTNAME_STRICT: "false"
@@ -66,8 +66,10 @@ services:
 
   migrate:
     build: {context: ../.., dockerfile: deploy/demo/api.Dockerfile}
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
-    command: ["python", "-c", "from alembic import command; from alembic.config import Config; c=Config('/app/apps/api/alembic.ini'); c.set_main_option('script_location','/app/apps/api/migrations'); c.set_main_option('prepend_sys_path','/app/apps/api/src'); c.set_main_option('sqlalchemy.url',__import__('os').environ['DATABASE_URL']); command.upgrade(c,'head')"]
+    env_file: ${STAGING_MIGRATION_ENV_FILE:?set STAGING_MIGRATION_ENV_FILE}
+    volumes:
+      - ../postgres/02-service-roles.sql:/run/service-roles.sql:ro
+    command: ["python", "-c", "import os,pathlib,psycopg; from sqlalchemy.engine import make_url; from alembic import command; from alembic.config import Config; c=Config('/app/apps/api/alembic.ini'); c.set_main_option('script_location','/app/apps/api/migrations'); c.set_main_option('prepend_sys_path','/app/apps/api/src'); c.set_main_option('sqlalchemy.url',os.environ['DATABASE_URL']); command.upgrade(c,'head'); db=psycopg.connect(make_url(os.environ['DATABASE_URL']).set(drivername='postgresql').render_as_string(hide_password=False)); db.execute(pathlib.Path('/run/service-roles.sql').read_text()); db.commit(); db.close()"]
     depends_on:
       postgres: {condition: service_healthy}
     restart: "no"
@@ -75,7 +77,7 @@ services:
 
   api:
     build: {context: ../.., dockerfile: deploy/demo/api.Dockerfile}
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
+    env_file: ${STAGING_API_ENV_FILE:?set STAGING_API_ENV_FILE}
     depends_on:
       migrate: {condition: service_completed_successfully}
       postgres: {condition: service_healthy}
@@ -93,7 +95,7 @@ services:
 
   artifact-maintenance:
     build: {context: ../.., dockerfile: deploy/demo/api.Dockerfile}
-    env_file: ${STAGING_ENV_FILE:?set STAGING_ENV_FILE}
+    env_file: ${STAGING_MAINTENANCE_ENV_FILE:?set STAGING_MAINTENANCE_ENV_FILE}
     command: ["python", "-m", "platform_api.modules.artifact.maintenance_runner"]
     depends_on:
       migrate: {condition: service_completed_successfully}
