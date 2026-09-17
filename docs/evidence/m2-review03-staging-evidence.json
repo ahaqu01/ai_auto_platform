@@ -1,0 +1,19 @@
+{
+  "runId": "p2-20260917",
+  "environment": "staging",
+  "provider": "aliyun_oss",
+  "realAssets": 101,
+  "firstPage": 100,
+  "afterLoadMore": 101,
+  "laterPageDetailsAndDownload": "PASS",
+  "uploadTtl901Status": 422,
+  "downloadTtls": {
+    "60": 200,
+    "900": 200,
+    "901": 422,
+    "3600": 422
+  },
+  "sameKeyReplay": "PASS",
+  "changedPayloadCode": "IDEMPOTENCY_CONFLICT",
+  "downloadContent": "PASS"
+}

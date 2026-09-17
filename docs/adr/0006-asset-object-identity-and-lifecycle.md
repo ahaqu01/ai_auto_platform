@@ -21,7 +21,7 @@ Key 不包含组织 ID、项目 ID、用户 ID、邮箱、原始文件名、日�
 
 上传会话状态：`PENDING_UPLOAD`、`UPLOADING`、`COMPLETING`、`COMPLETED`、`ABORTED`、`EXPIRED`、`FAILED`。前三者为活动状态，后四者为终态；失败重试创建新会话，幂等重放可返回已经成功的原结果。
 
-资产状态：`VERIFYING`、`AVAILABLE`、`QUARANTINED`、`FAILED`、`DELETING`、`DELETED`。只有 `AVAILABLE` 可作为任务输入或签发下载 URL。物理删除失败不回退业务可见性，由 `DELETING` 和 Reconciler 收敛。
+资产状态：`VERIFYING`、`AVAILABLE`、`QUARANTINED`、`FAILED`、`DELETING`、`DELETED`。只有 `AVAILABLE` 可签发下载 URL；AVAILABLE 只是后续执行消费的必要条件，不能代替内容安全门禁。M3 训练、解压和设备执行消费必须另行要求扫描 CLEAN 或有明确可审计的安全豁免；NOT_REQUIRED 不得当作 CLEAN。物理删除失败不回退业务可见性，由 `DELETING` 和 Reconciler 收敛。
 
 ### 完整性与内容安全
 
@@ -37,7 +37,9 @@ Key 不包含组织 ID、项目 ID、用户 ID、邮箱、原始文件名、日�
 
 ### 跨系统一致性
 
-数据库是业务状态源，对象存储是字节载体。网络调用不放在持有业务行锁的长事务中。所有外部步骤使用不可变 Key 和幂等命令；Reconciler 负责收敛超时完成、孤儿对象、缺失对象和删除失败。
+数据库是业务状态源，对象存储是字节载体。原则上网络调用不放在持有业务行锁的长事务中。现有 Multipart 初始化及 completion 串行验证为明确实现例外：completion 先提交持久化 checkpoint，再重获上传会话行锁直到完成验证与发布，避免并发发布；大对象验证持锁成本保留为技术约束，不宣称已实现异步校验。所有外部步骤使用不可变 Key 和幂等命令；Reconciler 负责收敛超时完成、孤儿对象、缺失对象和删除失败。
+
+2026-09-17 P2 合同修订：对外上传/下载签名为 60～900 秒，默认分别为 900/600；非法有效期在请求校验层返回 422。完成命令持久化 actor/key/manifest hash，成功重放 200、清单冲突 409、隔离错误 409 重放；仅在上传会话行锁保护下允许恢复 PROCESSING。运行时长期 RAM Key 的 STS 迁移仍须真实切换验收，不能靠计划文档关闭。
 
 ## 影响
 

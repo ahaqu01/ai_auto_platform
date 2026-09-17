@@ -1,0 +1,10 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["sts:AssumeRole"],
+      "Resource": ["acs:ram::<account-id>:role/<platform-storage-role>"]
+    }
+  ]
+}

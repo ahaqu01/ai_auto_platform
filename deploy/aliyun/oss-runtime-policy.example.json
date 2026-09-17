@@ -1,0 +1,16 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["oss:GetObject", "oss:PutObject", "oss:DeleteObject", "oss:AbortMultipartUpload"],
+      "Resource": ["acs:oss:*:*:aiautoplatform/v1/o/*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["oss:ListObjects"],
+      "Resource": ["acs:oss:*:*:aiautoplatform"],
+      "Condition": {"StringLike": {"oss:Prefix": ["v1/o/*"]}}
+    }
+  ]
+}

@@ -98,3 +98,9 @@ M2-CLOSE-02 真实 MinIO 浏览器 E2E 已 ACCEPTED：实现提交 `34ead76`、�
 - M2-REVIEW-01：运维公平性代码/CI 已通过；`c728a20`，CI `35170834811` success。规模化真实存储复验保留到全量门禁。迁移 `20260916_12` 已随身份拆分部署 Staging，Demo 未变。
 - M2-REVIEW-02：`ACCEPTED / STAGING SWITCH ACCEPTED`。角色和配置拆分实现 `d72da41`，隔离 PostgreSQL 身份与业务测试通过；281 项非 PostgreSQL 回归通过，CI `35172007557` 和运行态验证提交 `4c81947` 的 CI `35172236228` 均 success。Staging 使用受限 API/maintenance 身份，身份与环境检查通过；真实 OSS 浏览器 `1 passed (4.0m)`，临时用户/组织/对象已清理，平台前缀对象数 0，维护 failures=0。详见数据库身份拆分开发文档与验收记录。
 - P2 合同与产品修复、全量回归和四方复签尚未关闭；不得提前合并 main 或创建新的总验收标签。
+
+### M2-REVIEW-03：P2 合同与产品修复
+
+状态 `FUNCTIONAL ACCEPTED / P2-SEC-02 OPEN`。`fa74c93` 修复签名上限合同、资产分页、完成命令幂等；`52a552d` 增加真实 OSS 101 资产专项；两个提交 CI 均 success。API 295 passed/32 deselected、Web 27 passed/build 成功；Staging 专项 `1 passed (1.3m)`，第 101 个资产详情下载、TTL 900/901 边界、同 key 重放/不同清单冲突通过。临时用户/组织/对象已清理，平台前缀对象、资产/上传会话数均 0，受限数据库身份和维护运行再次通过。
+
+上传范围锁定、Web 扫描枚举与中文扫描边界提示已修复。长期 RAM Key 未迁移到真实 STS，缺专用角色 ARN/可信签发方式和刷新验收；风险处置未批准，因此本 P2 门禁整体未关闭。详见 P2 修复开发文档、验收记录和 OSS STS 清单。全量复验/四方复签仍待后续门禁，Demo/main/历史标签不变。
