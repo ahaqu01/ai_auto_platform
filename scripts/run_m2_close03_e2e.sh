@@ -48,4 +48,4 @@ E2E_ENVIRONMENT="$environment" E2E_USERNAME="$username" E2E_EMAIL="$email" \
 E2E_BASE_URL="$base_url" E2E_USERNAME="$email" E2E_EMAIL="$email" \
   E2E_PASSWORD="$E2E_PASSWORD" E2E_RUN_ID="$run_id" \
   E2E_RESULTS_FILE="test-results/m2-close-03-results.json" \
-  npm --prefix "$root/apps/web" run test:e2e -- e2e/m2-close-03-oss.spec.ts
+  npm --prefix "$root/apps/web" run test:e2e -- "${E2E_SPEC_FILE:-e2e/m2-close-03-oss.spec.ts}"
